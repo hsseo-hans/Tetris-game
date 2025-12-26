@@ -11,7 +11,11 @@ const state = {
     difficulty: 'normal',
     bag: [], next: null, run: false, isPaused: false,
     dropCounter: 0, dropInterval: 1000, lastTime: 0,
-    startTime: 0, duration: 180000,
+    startTime: 0, 
+    
+    duration: 120000,
+    pauseStartTime: 0,  // [추가] 일시정지 시작 시간 기록용 변수
+
     animationId: null,
     currentBGM: 'classicA',
     curLang: 'en'
@@ -93,27 +97,35 @@ function handleGlobalClick(e) {
 }
 
 // [추가됨] 일시정지 토글 함수
+// js/main.js 하단부 togglePause 함수 교체
+
 function togglePause() {
     state.isPaused = !state.isPaused;
 
     if (state.isPaused) {
-        // 일시정지 상태로 전환
-        cancelAnimationFrame(state.animationId);
-        if (audioCtx && audioCtx.state === 'running') audioCtx.suspend(); // 오디오 정지
+        // [추가] 멈춘 시각 기록
+        state.pauseStartTime = Date.now();
         
-        // 시각적 효과 (타이머를 흐리게)
+        cancelAnimationFrame(state.animationId);
+        if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+        
         document.getElementById('timer').style.opacity = '0.3';
-        document.getElementById('game-title').innerText = "PAUSED"; // 제목을 PAUSED로 변경 (선택사항)
+        document.getElementById('game-title').innerText = "PAUSED"; 
     } else {
-        // 게임 재개
-        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); // 오디오 재개
-        state.lastTime = performance.now(); // 시간 차이 초기화 (중요: 멈춰있던 시간만큼 블록이 확 떨어지는 것 방지)
+        // [추가] 재개 시, (현재 시간 - 멈춘 시각) 만큼 시작 시간을 뒤로 미룸
+        if (state.pauseStartTime > 0) {
+            const pausedDuration = Date.now() - state.pauseStartTime;
+            state.startTime += pausedDuration;
+            state.pauseStartTime = 0; // 초기화
+        }
+
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        state.lastTime = performance.now(); 
         document.getElementById('timer').style.opacity = '1';
-        document.getElementById('game-title').innerText = STRINGS[state.curLang].title; // 제목 복구
+        document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
         loop();
     }
 }
-
 // --- Language ---
 function detectAndSetLang() {
     const browserLang = navigator.language || navigator.userLanguage; 
@@ -233,10 +245,19 @@ function setDifficulty(lvl) {
     if(state.opponent.bot) state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot);
 }
 
+// js/main.js 의 startCountdown 함수 수정
+
 function startCountdown() {
     initAudio();
     stopBGM();
     saveNick();
+    
+    // [추가] 카운트다운 시작 시 타이머를 강제로 2분(설정된 시간)으로 초기화
+    // 이걸 안 하면 이전 게임의 시간(00:00)이나 3분이 보입니다.
+    const m = Math.floor(state.duration / 60000);
+    const s = Math.floor((state.duration % 60000) / 1000);
+    document.getElementById('timer').innerText = `0${m}:${s<10?'0':''}${s}`;
+    
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('result-area').style.display = 'none';
     document.getElementById('count-overlay').style.display = 'flex';

@@ -1,4 +1,5 @@
 // js/audio.js
+import { playRetroSFX } from './retro_sound.js';
 
 export let audioCtx = null;
 let bgmSource = null;
@@ -6,30 +7,16 @@ let gainNode = null;
 let isMuted = false;
 let volume = 0.5;
 
-// [수정됨] 1개의 외부 링크 + 4개의 로컬 파일 (bgm 폴더)
-const SOUNDS = {
-    // 1. 기존 유지 (외부 링크)
-    bgm_classicA: 'https://archive.org/download/TetrisThemeMusic/Tetris.mp3',
-    
-    // 2. 로컬 파일 (bgm 폴더 안의 파일들)
-    // 주의: 파일명이 PC에 있는 것과 띄어쓰기/대소문자까지 정확히 일치해야 합니다.
+// [배경음악 목록]
+const BGM_FILES = {
+    bgm_classicA: 'bgm/Tetris.mp3',
     bgm_troika: 'bgm/Tetris-Troika-tetis.mp3',
     bgm_bradinsky: 'bgm/Tetris-Bradinsky-tetis.mp3',
     bgm_loginska: 'bgm/Alexys-Loginska.mp3',
-    bgm_karinka: 'bgm/Tetris-NES-Karinka.mp3',
-    
-    // 효과음 (기존 유지)
-    start: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
-    drop: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-    clear: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3',
-    attack: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
-    count: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-    win: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
-    lose: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-    swoosh: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'
+    bgm_karinka: 'bgm/Tetris-NES-Karinka.mp3'
 };
 
-const buffers = {};
+const bgmBuffers = {};
 
 export async function initAudio() {
     if(audioCtx) return;
@@ -39,16 +26,15 @@ export async function initAudio() {
     gainNode.gain.value = volume;
     gainNode.connect(audioCtx.destination);
 
-    // 사운드 파일 로딩
-    for(const [key, url] of Object.entries(SOUNDS)) {
+    for(const [key, url] of Object.entries(BGM_FILES)) {
         try {
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const buf = await res.arrayBuffer();
-            buffers[key] = await audioCtx.decodeAudioData(buf);
-            console.log(`Sound loaded: ${key}`);
+            bgmBuffers[key] = await audioCtx.decodeAudioData(buf);
+            console.log(`BGM Loaded: ${key}`);
         } catch(e) { 
-            console.warn(`Sound load fail (${key} at ${url}):`, e); 
+            console.warn(`BGM Load Failed (${key}):`, e); 
         }
     }
 }
@@ -57,18 +43,34 @@ export function playBGM(type) {
     if(isMuted || !audioCtx) return;
     stopBGM();
     
-    // index.html의 value와 매칭 (예: troika -> bgm_troika)
     const key = `bgm_${type}`;
-    
-    if(buffers[key]) {
+    if(bgmBuffers[key]) {
         bgmSource = audioCtx.createBufferSource();
-        bgmSource.buffer = buffers[key];
+        bgmSource.buffer = bgmBuffers[key];
         bgmSource.loop = true;
         bgmSource.connect(gainNode);
         bgmSource.start(0);
     } else {
         console.warn(`BGM Key not found: ${key}`);
     }
+}
+
+// [추가됨] 랜덤 BGM 재생 함수
+export function playRandomBGM() {
+    if(isMuted || !audioCtx) return null;
+
+    // 1. 등록된 키 목록을 가져옴 (['bgm_classicA', 'bgm_troika', ...])
+    const keys = Object.keys(BGM_FILES);
+    
+    // 2. 랜덤 인덱스 선택
+    const randomKey = keys[Math.floor(Math.random() * keys.length)];
+    
+    // 3. 'bgm_' 접두사를 제거하여 type 추출 (예: 'bgm_troika' -> 'troika')
+    const type = randomKey.replace('bgm_', '');
+    
+    // 4. 재생 및 타입 반환
+    playBGM(type);
+    return type; 
 }
 
 export function stopBGM() {
@@ -79,11 +81,8 @@ export function stopBGM() {
 }
 
 export function playSFX(key) {
-    if(isMuted || !audioCtx || !buffers[key]) return;
-    const src = audioCtx.createBufferSource();
-    src.buffer = buffers[key];
-    src.connect(gainNode);
-    src.start(0);
+    if(isMuted || !audioCtx) return;
+    playRetroSFX(audioCtx, key, volume);
 }
 
 export function playEndSound(type) {
@@ -104,7 +103,6 @@ export function toggleAudioMute(btn) {
 }
 
 export function setAudioVolume(val) {
-    // 0~100 사이 값을 0.0~1.0으로 변환
     volume = val / 100;
     if(gainNode && !isMuted) gainNode.gain.value = volume;
 }

@@ -1,6 +1,9 @@
+// js/main.js
+
 import { COLS, ROWS, BLK, COLORS, DEFAULT_SVG, STRINGS } from './constants.js';
 import { genGarbage, createPiece, rotate, collide, merge } from './core.js';
-import { audioCtx, initAudio, playBGM, stopBGM, playSFX, playEndSound, toggleAudioMute, setAudioVolume } from './audio.js';
+// [수정됨] playRandomBGM 추가 import
+import { audioCtx, initAudio, playBGM, playRandomBGM, stopBGM, playSFX, playEndSound, toggleAudioMute, setAudioVolume } from './audio.js';
 import { Bot } from './bot.js';
 
 const state = {
@@ -12,7 +15,7 @@ const state = {
     bag: [], next: null, run: false, isPaused: false,
     dropCounter: 0, dropInterval: 1000, lastTime: 0,
     startTime: 0, 
-    duration: 120000,   // 2분
+    duration: 120000,
     pauseStartTime: 0,  
     animationId: null,
     currentBGM: 'classicA',
@@ -26,15 +29,17 @@ const ctxOpp = canvasOpp.getContext('2d');
 const canvasNext = document.getElementById('next-canvas');
 const ctxNext = canvasNext.getContext('2d');
 
+// ... (window.onload 부터 startAIGame 까지는 기존 코드 유지) ...
+// (편의를 위해 생략했지만, 기존 코드를 그대로 두시면 됩니다)
+
 window.onload = () => {
+    // ... (기존과 동일)
     detectAndSetLang();
     try { loadProfile(); } catch(e) { localStorage.clear(); loadProfile(); }
-    
     document.addEventListener('click', handleGlobalClick);
-    
     drawGrid(ctxMe, Array(20).fill(Array(10).fill(0)), BLK);
     drawGrid(ctxOpp, Array(20).fill(Array(10).fill(0)), BLK);
-    
+    // ... 버튼 이벤트 연결 코드들 (기존 유지) ...
     document.getElementById('mute-btn').onclick = (e) => {
         const muted = toggleAudioMute(e.target);
         if(muted) stopBGM();
@@ -45,23 +50,20 @@ window.onload = () => {
         state.currentBGM = e.target.value;
         if(state.run && !state.isPaused) playBGM(state.currentBGM);
     };
+    // ... 나머지 이벤트 리스너들 (기존 유지) ...
     document.getElementById('bgm-select').onclick = (e) => e.stopPropagation();
     document.getElementById('vol-slider').onclick = (e) => e.stopPropagation();
-    
     document.getElementById('lang-btn').onclick = (e) => { e.stopPropagation(); toggleLangMenu(); };
     document.querySelectorAll('.lang-opt').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setLang(btn.dataset.lang); };
     });
-
     document.getElementById('profile-trigger').onclick = (e) => { e.stopPropagation(); document.getElementById('file-in').click(); };
     document.getElementById('file-in').onclick = (e) => e.stopPropagation();
     document.getElementById('file-in').onchange = handleFile;
     document.getElementById('nick-in').onclick = (e) => e.stopPropagation(); 
-    
     document.getElementById('start-btn').onclick = (e) => { e.stopPropagation(); startCountdown(); };
     document.getElementById('quit-btn').onclick = (e) => { e.stopPropagation(); quitGame(); };
     document.getElementById('restart-btn').onclick = (e) => { e.stopPropagation(); restart(); };
-    
     document.querySelectorAll('.btn-diff').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setDifficulty(btn.dataset.diff); };
     });
@@ -95,6 +97,7 @@ function togglePause() {
     }
 }
 
+// ... (detectAndSetLang, handleFile 등 중간 함수들은 기존 그대로 유지) ...
 function detectAndSetLang() {
     const browserLang = navigator.language || navigator.userLanguage; 
     if(browserLang.includes('ko')) setLang('ko');
@@ -185,7 +188,6 @@ function updateRecordUI() {
     document.getElementById('rec-win').innerText = state.record.win;
     document.getElementById('rec-lose').innerText = state.record.lose;
 }
-
 function setDifficulty(lvl) {
     state.difficulty = lvl;
     document.querySelectorAll('.btn-diff').forEach(b => b.classList.remove('active'));
@@ -193,7 +195,6 @@ function setDifficulty(lvl) {
     if(targetBtn) targetBtn.classList.add('active');
     if(state.opponent.bot) state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot);
 }
-
 function startCountdown() {
     initAudio(); stopBGM(); saveNick();
     const m = Math.floor(state.duration / 60000);
@@ -222,7 +223,6 @@ function startCountdown() {
         }
     }, 1000);
 }
-
 function startAIGame() {
     state.opponent.isAI = true;
     state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot); 
@@ -230,6 +230,7 @@ function startAIGame() {
     startGame();
 }
 
+// [수정됨] startGame 함수: 배경음악 랜덤 재생 로직 추가
 function startGame() {
     state.run = true; state.isPaused = false;
     state.grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
@@ -243,11 +244,22 @@ function startGame() {
     updateUI();
     document.getElementById('quit-btn').classList.remove('hidden');
     playSFX('start'); 
-    playBGM(state.currentBGM);
+    
+    // [중요] 랜덤 BGM 재생 및 UI 업데이트
+    const randomBgmType = playRandomBGM(); 
+    if (randomBgmType) {
+        state.currentBGM = randomBgmType; // 상태 업데이트
+        
+        // 드롭다운 메뉴(UI)도 현재 재생 중인 음악으로 변경
+        const selectEl = document.getElementById('bgm-select');
+        if(selectEl) selectEl.value = randomBgmType;
+    }
+
     loop();
 }
 
 function loop(time = 0) {
+    // ... (기존 루프 로직 유지) ...
     if(!state.run || state.isPaused) return; 
     const dt = time - state.lastTime;
     state.lastTime = time;
@@ -269,6 +281,7 @@ function loop(time = 0) {
     state.animationId = requestAnimationFrame(loop);
 }
 
+// ... (이하 나머지 함수들: animateAttack, getPieceFromBag, playerDrop 등 모두 기존 그대로 유지) ...
 function animateAttack(sender, lines, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
@@ -292,7 +305,6 @@ function animateAttack(sender, lines, callback) {
     ], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
     anim.onfinish = () => { div.remove(); if(callback) callback(); };
 }
-
 function getPieceFromBag() {
     if (state.bag.length === 0) state.bag = 'ILJOTSZ'.split('').sort(() => Math.random() - 0.5);
     return createPiece(state.bag.pop());
@@ -408,7 +420,6 @@ document.addEventListener('keydown', e => {
     else if(e.keyCode===40) playerDrop(); else if(e.keyCode===38) playerRotate();
     else if(e.keyCode===32) playerHardDrop();
 });
-
 document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
         if(state.run) { 
@@ -421,31 +432,27 @@ document.addEventListener("visibilitychange", () => {
         if(audioCtx && audioCtx.state === 'running') audioCtx.suspend();
     }
 });
-
 function updateUI() {
     document.getElementById('s-my-score').innerText = state.player.score;
     document.getElementById('s-atk').innerText = state.stats.atk;
     document.getElementById('s-rec').innerText = state.stats.rec;
 }
-
 function quitGame() { 
     if(!state.run) return; 
     stopBGM(); 
     endGame("LOSE"); 
 }
-
 function endGame(res) {
     state.run = false; stopBGM();
     document.getElementById('quit-btn').classList.add('hidden');
     document.getElementById('result-area').style.display='flex';
     document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
     document.getElementById('timer').style.opacity = '1';
-
     const txt = document.getElementById('res-text');
     if(res === "WIN") {
         txt.innerText = STRINGS[state.curLang].winMsg;
         txt.classList.add('win'); 
-        fireConfetti(); // 이 함수 안에서 폭죽 소리를 재생하도록 수정됨
+        fireConfetti();
         playEndSound('win'); 
         state.record.win++;
     } else {
@@ -457,25 +464,9 @@ function endGame(res) {
     localStorage.setItem('tetris_record', JSON.stringify(state.record));
     updateRecordUI();
 }
-
 function restart() {
     document.getElementById('result-area').style.display='none';
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     startCountdown();
 }
-
-// [수정] 폭죽 효과 + 소리 재생 기능 추가
-function fireConfetti(){
-    const e = Date.now() + 3000;
-    (function f(){
-        confetti({particleCount:5, angle:60, origin:{x:0}});
-        confetti({particleCount:5, angle:120, origin:{x:1}});
-        
-        // [추가됨] 10% 확률로 '팡!' 소리 재생 (clear 사운드 활용)
-        if (Math.random() < 0.1) {
-            playSFX('clear');
-        }
-
-        if(Date.now() < e) requestAnimationFrame(f);
-    })();
-}
+function fireConfetti(){const e=Date.now()+3000;(function f(){confetti({particleCount:5,angle:60,origin:{x:0}});confetti({particleCount:5,angle:120,origin:{x:1}});if(Math.random()<0.1)playSFX('clear');if(Date.now()<e)requestAnimationFrame(f);})();}

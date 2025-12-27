@@ -1,14 +1,17 @@
+// js/constants.js
 export const COLS = 10;
 export const ROWS = 20;
 export const BLK = 32;
 export const COLORS = [null, '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF', '#999'];
 export const DEFAULT_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' style='background:%23333'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='30'%3EUSER%3C/text%3E%3C/svg%3E";
 
-// 다국어 데이터
 export const STRINGS = {
     ko: {
-        title: "Tetris: 닝겐 Ai를 이겨봐라!",
+        title: "Tetris: 닝겐, Ai를 이겨라!",
+        // [추가] 관전 모드 타이틀
+        autoModeTitle: "🤖 AI 대전 (관전 모드)", 
         nickPH: "닉네임 입력",
+        lobbyRankBtn: "🏆 랭킹 보드 확인",
         startBtn: "🤖 AI와 대결 시작",
         quit: "🏳️ 포기",
         me: "나",
@@ -24,8 +27,15 @@ export const STRINGS = {
         atk: "공격함",
         rec: "받음",
         restart: "다시 한판",
+        autoMode: "🤖 관전 모드 (Auto)",
         winMsg: "축하합니다!\nAI를 이겼습니다!",
-        loseMsg: "닝겐, Ai 에게도 못이기는데, 일이나 해!",
+        loseMsg: "닝겐, Ai 에게도 못이기는데,\n일이나 해!",
+        rankSuccessMsg: "🎉 랭킹 진입을 축하합니다! 🎉",
+        saveRankBtn: "💾 랭킹 저장",
+        commentPH: "한마디 (30자)",
+        toastSaved: "저장되었습니다!",
+        autoOverlay: "게임을 시작하려면\n아무 키나 누르거나 클릭하세요",
+        challengeMsg: "닝겐, 지금 초고수에 도전해 봐! 너의 이름을 알려!",
         credits: {
             pdLabel: "게임 기획 및 PD", pdName: "서형수",
             devLabel: "게임 개발", devName: "제미나이 프로",
@@ -33,8 +43,11 @@ export const STRINGS = {
         }
     },
     ja: {
-        title: "テトリス: 人間よ！ AIに勝ってみろ！",
+        title: "テトリス: 人間よ、AIを打ち負かせ！",
+        // [추가] 관전 모드 타이틀
+        autoModeTitle: "🤖 AI対戦 (観戦モード)",
         nickPH: "ニックネーム入力",
+        lobbyRankBtn: "🏆 ランキング確認",
         startBtn: "🤖 AIと対決開始",
         quit: "🏳️ 降参",
         me: "私",
@@ -50,8 +63,15 @@ export const STRINGS = {
         atk: "攻撃",
         rec: "受け",
         restart: "もう一度",
+        autoMode: "🤖 観戦モード (Auto)",
         winMsg: "おめでとう！\nAIに勝ちました！",
-        loseMsg: "ニンゲン、AIにも勝てないのか？仕事しろ！",
+        loseMsg: "ニンゲン、AIにも勝てないのか？\n仕事しろ！",
+        rankSuccessMsg: "🎉 ランクインおめでとう！ 🎉",
+        saveRankBtn: "💾 記録保存",
+        commentPH: "一言 (30文字)",
+        toastSaved: "保存しました！",
+        autoOverlay: "ゲームを始めるには\nキーを押すかクリックしてください",
+        challengeMsg: "人間よ、今すぐ超上級に挑め！その名を轟かせろ！",
         credits: {
             pdLabel: "企画 & PD", pdName: "ソ·ヒョンス",
             devLabel: "開発", devName: "Gemini Pro",
@@ -59,8 +79,11 @@ export const STRINGS = {
         }
     },
     en: {
-        title: "Tetris: Human! Try beating AI!",
+        title: "Tetris: Human, Defeat the AI!",
+        // [추가] 관전 모드 타이틀
+        autoModeTitle: "🤖 AI vs AI (Watch Mode)",
         nickPH: "Enter Nickname",
+        lobbyRankBtn: "🏆 View Ranking",
         startBtn: "🤖 Start vs AI",
         quit: "🏳️ Give Up",
         me: "Me",
@@ -76,25 +99,19 @@ export const STRINGS = {
         atk: "Attack",
         rec: "Receive",
         restart: "Play Again",
+        autoMode: "🤖 Watch Mode (Auto)",
         winMsg: "Congratulations!\nYou beat the AI!",
-        loseMsg: "Human, can't even beat AI? Go back to work!",
+        loseMsg: "Human, can't even beat AI?\nGo back to work!",
+        rankSuccessMsg: "🎉 You made the ranking! 🎉",
+        saveRankBtn: "💾 Save Rank",
+        commentPH: "Comment (30 chars)",
+        toastSaved: "Saved successfully!",
+        autoOverlay: "Press any key or click\nto start game",
+        challengeMsg: "Human! Challenge Super Hard now! Make your name known!",
         credits: {
             pdLabel: "Planner & PD", pdName: "Hyungsu, Seo(Hans)",
             devLabel: "Developer", devName: "Gemini Pro",
             timeLabel: "Time Spent", timeVal: "6 Hours"
         }
     }
-};
-
-// 음악 데이터
-const N = { e5:659, b4:494, c5:523, d5:587, a4:440, g4:392, f4:349, e4:330, c4:261, d4:293, g3:196, a3:220, f3:174, b3:246, e3:164, d3:146, c3:130 };
-export const TETRIS_MELODY = [ N.e5, N.b4, N.c5, N.d5, N.c5, N.b4, N.a4, N.a4, N.c5, N.e5, N.d5, N.c5, N.b4, N.b4, N.c5, N.d5, N.e5, N.c5, N.a4, N.a4, 0, 0, N.d5, N.d5, N.f5, N.a5, N.g5, N.f5, N.e5, N.e5, N.c5, N.e5, N.d5, N.c5, N.b4, N.b4, N.c5, N.d5, N.e5, N.c5, N.a4, N.a4, 0, 0, N.e4, 0, N.c4, 0, N.d4, 0, N.b3, 0, N.c4, 0, N.a3, 0, N.g3, 0, N.b3, 0, N.e4, 0, N.c4, 0, N.d4, 0, N.b3, 0, N.c4, N.e4, N.a4, N.a4, 0, 0, 0, 0 ];
-export const THEME_B_MELODY = [ N.e5, 0, N.c5, 0, N.a4, 0, N.c5, N.e5, N.d5, 0, N.b4, 0, N.g4, 0, N.b4, N.d5, N.c5, 0, N.a4, 0, N.f4, 0, N.a4, N.c5, N.b4, N.b4, N.g4, N.g4, N.e4, 0, 0, 0 ];
-export const TETRIS_BASS = [ N.e3, N.e3, N.a3, N.a3, N.g3, N.g3, N.e3, N.e3, N.e3, N.e3, N.a3, N.a3, N.g3, N.g3, N.e3, N.e3, N.d3, N.d3, N.d3, N.d3, N.c3, N.c3, N.c3, N.c3, N.g3, N.g3, N.e3, N.e3, N.a3, N.a3, N.a3, N.a3, N.e3, N.e3, N.a3, N.a3, N.g3, N.g3, N.e3, N.e3, N.e3, N.e3, N.a3, N.a3, N.g3, N.g3, N.e3, N.e3 ];
-
-export const BGM_DATA = {
-    guitar:    { melody: TETRIS_MELODY, bass: TETRIS_BASS, tempo: 110, style: 'pluck' },
-    bradinsky: { melody: TETRIS_MELODY, bass: TETRIS_BASS, tempo: 130, style: 'synth' },
-    classicA:  { melody: TETRIS_MELODY, bass: TETRIS_BASS, tempo: 180, style: 'classic' },
-    themeB:    { melody: THEME_B_MELODY,bass: TETRIS_BASS, tempo: 140, style: 'synth' },
 };

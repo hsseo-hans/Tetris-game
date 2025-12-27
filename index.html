@@ -3,34 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tetris VS AI</title>
-    
+    <title>Tetris: 닝겐, Ai를 이겨라!</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><path d=%22M35 15 h30 v30 h30 v30 h-90 v-30 h30 z%22 fill=%22%23FF0D72%22 stroke=%22white%22 stroke-width=%225%22/></svg>">
     
-    <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=M+PLUS+Rounded+1c:wght@800&family=Fredoka:wght@600&family=Noto+Sans+KR:wght@500;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Yomogi&family=Patrick+Hand&family=Noto+Sans+KR:wght@500;900&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
-    <div id="game-title" data-i18n="title">Tetris: 닝겐, Ai를 이겨봐라!</div>
+    <div id="game-title" data-i18n="title">Tetris: 닝겐, Ai를 이겨라!</div>
     <div id="debug-log"></div>
     <button class="btn-danger hidden" id="quit-btn" data-i18n="quit">🏳️ 포기</button>
 
+    <div id="top-left-rank-btn" title="Ranking Board">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9H2v13h4V9zM12 5h-4v17h4V5zM18 14h-4v8h4v-8z"/>
+        </svg>
+    </div>
+
     <div id="audio-ctrl">
-        <button id="mute-btn" style="background:none; border:none; font-size:2rem; cursor:pointer;">🔊</button>
-        <input type="range" id="vol-slider" min="0" max="1" step="0.1" value="0.5" style="width:80px;">
-        
+        <button id="mute-btn" title="Mute/Unmute">
+            <svg id="speaker-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke-width="1.5"></polygon>
+                <path id="spk-wave" d="M15.54 8.46a5 5 0 0 1 0 7.07 M19.07 4.93a10 10 0 0 1 0 14.14" stroke-width="1.5"></path>
+                <line id="spk-cross" x1="23" y1="1" x2="1" y2="23" class="hidden" style="stroke: #ff0050; stroke-width: 1.5;"></line>
+            </svg>
+        </button>
+        <input type="range" id="vol-slider" min="0" max="100" step="1" value="50" style="width:80px;">
         <select id="bgm-select">
-            <option value="classicA">Original A (Classic)</option>
+            <option value="classicA">Original A</option>
             <option value="troika">Troika</option>
             <option value="bradinsky">Bradinsky</option>
             <option value="loginska">Loginska</option>
-            <option value="karinka">Karinka (NES)</option>
+            <option value="karinka">Karinka</option>
         </select>        
-    </div>    </div>
+    </div>
 
     <div id="lang-ctrl">
         <div id="lang-menu">
@@ -40,26 +49,36 @@
         </div>
         <button id="lang-btn" title="Change Language">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                <circle cx="12" cy="12" r="10" stroke-width="1.5"></circle>
+                <line x1="2" y1="12" x2="22" y2="12" stroke-width="1.5"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-width="1.5"></path>
             </svg>
         </button>
     </div>
 
     <div id="lobby" class="overlay">
-        <h1 class="lobby-title" data-i18n="title">Tetris: 닝겐, Ai를 이겨봐라!</h1>
+        <h1 class="lobby-title" data-i18n="title">Tetris: 닝겐, Ai를 이겨라!</h1>
         <div class="card">
             <div class="profile-container" id="profile-trigger" title="Change Photo">
                 <div class="profile-box"><img id="preview-img" src=""></div>
                 <div class="profile-edit-icon">📷</div>
             </div>
-            <input type="file" id="file-in" hidden accept="image/*">
+            <input type="file" id="file-in" accept="image/*" style="display:none;">
             <input type="text" id="nick-in" data-i18n-ph="nickPH" placeholder="닉네임 입력">
             
+            <button class="btn-sub" id="lobby-rank-btn" data-i18n="lobbyRankBtn">🏆 랭킹 보드 확인</button>
+            <div style="height: 15px;"></div>
             <button class="btn-main" id="start-btn" data-i18n="startBtn">🤖 AI와 대결 시작</button>
-
+            
             <div class="credits" id="credits-area"></div>
+
+            <div class="heart-container" id="heart-lobby">
+                <div class="heart-icon-wrapper">❤️</div>
+                <div class="heart-content">
+                    <span class="heart-text">개발자에게 응원의 하트를 날려 주세요</span>
+                    <input type="text" class="heart-input hidden" placeholder="응원 메시지 입력 후 엔터!" maxlength="30">
+                </div>
+            </div>
         </div>
     </div>
 
@@ -68,10 +87,56 @@
         <div id="count-msg" style="margin-top: 30px; font-size: 2.5rem; color: #0DFF72; font-family: var(--readable-font); font-weight: bold; text-align: center; text-shadow: 0 0 10px rgba(0,0,0,0.8); white-space: pre-wrap;"></div>
     </div>
 
+    <div id="auto-msg-overlay" class="hidden">
+        <div class="auto-msg-text" data-i18n="autoOverlay">게임을 시작하려면<br>아무 키나 누르거나 클릭하세요</div>
+    </div>
+
+    <div id="toast-msg" class="toast hidden">저장되었습니다!</div>
+
+    <div id="ranking-overlay" class="overlay hidden" style="z-index: 300; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px);">
+        <div class="card rank-card" style="width: 700px; max-width:95%; max-height: 90vh; background: rgba(20, 20, 30, 0.85); border: 1px solid rgba(255,255,255,0.2);">
+            <button id="rank-close-x" style="position:absolute; top:15px; right:15px; width:40px; height:40px; padding:0; background:transparent; border:none; color:#fff; font-size:2rem; cursor:pointer;">&times;</button>
+            <h2 style="font-family:'Nanum Pen Script'; font-size:4rem; margin:0 0 10px 0; color:#0DFF72; text-shadow:0 0 20px #0DFF72;">🏆 Global Top Ranking</h2>
+            
+            <div class="rank-tabs">
+                <button class="rank-tab" data-lvl="4" data-i18n="superHard">초고수</button>
+                <button class="rank-tab" data-lvl="3" data-i18n="hard">고수</button>
+                <button class="rank-tab active" data-lvl="2" data-i18n="normal">중수</button>
+                <button class="rank-tab" data-lvl="1" data-i18n="easy">초보</button>
+            </div>
+
+            <div class="ranking-header" style="display:flex; padding:10px; border-bottom:1px solid rgba(255,255,255,0.3); font-weight:bold; color:#ccc; font-size:1.1rem;">
+                <span style="flex:0.5; text-align:center;">#</span>
+                <span style="flex:1.5; text-align:center;">User</span>
+                <span style="flex:1; text-align:center;">Country</span>
+                <span style="flex:1.5; text-align:center;">Score</span>
+                <span style="flex:4.5; text-align:center;">Comment</span>
+            </div>
+            <div id="ranking-list" style="max-height:400px; overflow-y:auto; margin-bottom: 20px;">
+                <div style="padding:20px;">로딩중...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-msg-overlay" class="overlay hidden" style="z-index: 400; background: rgba(0,0,0,0.8);">
+        <div class="card" style="width: 600px; max-width:95%; max-height: 80vh; overflow:hidden;">
+            <button id="admin-close-x" style="position:absolute; top:15px; right:15px; width:40px; height:40px; padding:0; background:transparent; border:none; color:#fff; font-size:2rem; cursor:pointer;">&times;</button>
+            
+            <h2 style="font-family:'Nanum Pen Script'; font-size:3rem; margin:0 0 10px 0; color:#FF69B4; text-shadow:0 0 20px #FF69B4;">💌 응원 메시지함</h2>
+            
+            <div id="admin-total-hearts" style="font-family: var(--readable-font); font-size: 1.5rem; color: #ff0050; font-weight: 900; margin-bottom: 20px; text-shadow: 0 0 10px rgba(255,0,80,0.5);">
+                💖 받은 하트: 로딩중...
+            </div>
+
+            <div id="admin-msg-list" style="max-height:60vh; overflow-y:auto; text-align:left; padding: 10px;">
+                </div>
+        </div>
+    </div>
+
     <div id="app-container">
         <aside class="col-side">
             <div class="panel">
-                <img id="my-img" class="sidebar-profile">
+                <img id="my-img" class="sidebar-profile" src="">
                 <h3 id="my-nick-side" style="margin:10px 0; font-size: 2rem;" data-i18n="me">나</h3>
                 <div class="record-box">
                     <div class="record-title" data-i18n="totalRec">TOTAL RECORD</div>
@@ -103,9 +168,28 @@
                 <div class="player-label label-opp" id="game-opp-label">AI Bot</div>
                 <canvas id="opp-tetris" class="game-canvas" width="320" height="640"></canvas>
             </div>
+            
             <div id="result-area">
                 <div id="res-text" class="result-text" style="color:#0DFF72">WIN</div>
-                <button class="btn-sub btn-glow" id="restart-btn" style="width:auto; padding:15px 50px; font-size:1.8rem;" data-i18n="restart">다시 한판</button>
+                
+                <div id="rank-save-area" class="hidden" style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;">
+                    <div id="new-record-msg" style="color:#FFD700; font-size:1.5rem; font-weight:bold; animation:pop-anim 0.5s infinite alternate;" data-i18n="rankSuccessMsg">🎉 랭킹 진입을 축하합니다! 🎉</div>
+                    <input type="text" id="comment-in" placeholder="한마디 (30자)" maxlength="30" data-i18n-ph="commentPH" 
+                           style="width: 300px; text-align:center; font-size:1.2rem; padding:10px;">
+                    <button class="btn-main" id="save-rank-btn" style="width:150px; padding:8px; font-size:1rem; background:#E91E63;" data-i18n="saveRankBtn">💾 랭킹 저장</button>
+                </div>
+
+                <button class="btn-sub" id="auto-mode-btn" style="width:250px; padding:10px; font-size:1.2rem; margin-top:20px; background:#444;" data-i18n="autoMode">🤖 관전 모드 (Auto)</button>
+
+                <button class="btn-sub btn-glow" id="restart-btn" style="width:250px; padding:15px; font-size:1.8rem; margin-top:15px;" data-i18n="restart">다시 한판</button>
+
+                <div class="heart-container" id="heart-result" style="margin-top: 20px;">
+                    <div class="heart-icon-wrapper">❤️</div>
+                    <div class="heart-content">
+                        <span class="heart-text">개발자에게 응원의 하트를 날려 주세요</span>
+                        <input type="text" class="heart-input hidden" placeholder="응원 메시지 입력 후 엔터!" maxlength="30">
+                    </div>
+                </div>
             </div>
         </main>
 

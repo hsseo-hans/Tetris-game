@@ -1,25 +1,25 @@
 // js/main.js
-
 import { COLS, ROWS, BLK, COLORS, DEFAULT_SVG, STRINGS } from './constants.js';
 import { genGarbage, createPiece, rotate, collide, merge } from './core.js';
-// [수정됨] playRandomBGM 추가 import
 import { audioCtx, initAudio, playBGM, playRandomBGM, stopBGM, playSFX, playEndSound, toggleAudioMute, setAudioVolume } from './audio.js';
 import { Bot } from './bot.js';
+import { saveRankData, getRankingsByLevel, checkIfRanker, saveHeartComment, incrementHeartCount, getHeartMessages, getHeartCount } from './firebase.js';
 
 const state = {
-    grid: [], opponent: { grid:[], score:0, isAI:true, bot:null },
+    grid: [], 
+    opponent: { grid:[], score:0, isAI:true, bot:null },
+    autoBotLeft: null, 
     player: { pos:{x:0,y:0}, matrix:null, score:0 },
     stats: { atk:0, rec:0 },
     record: { win:0, lose:0 },
     difficulty: 'normal',
     bag: [], next: null, run: false, isPaused: false,
+    isAutoMode: false,
     dropCounter: 0, dropInterval: 1000, lastTime: 0,
-    startTime: 0, 
-    duration: 120000,
-    pauseStartTime: 0,  
-    animationId: null,
-    currentBGM: 'classicA',
-    curLang: 'en'
+    startTime: 0, duration: 120000, pauseStartTime: 0, animationId: null,
+    currentBGM: 'classicA', curLang: 'en',
+    wasPausedByRank: false,
+    heartClickCount: 0
 };
 
 const canvasMe = document.getElementById('my-tetris');
@@ -29,51 +29,288 @@ const ctxOpp = canvasOpp.getContext('2d');
 const canvasNext = document.getElementById('next-canvas');
 const ctxNext = canvasNext.getContext('2d');
 
-// ... (window.onload 부터 startAIGame 까지는 기존 코드 유지) ...
-// (편의를 위해 생략했지만, 기존 코드를 그대로 두시면 됩니다)
-
 window.onload = () => {
-    // ... (기존과 동일)
     detectAndSetLang();
     try { loadProfile(); } catch(e) { localStorage.clear(); loadProfile(); }
+    
     document.addEventListener('click', handleGlobalClick);
+    document.addEventListener('keydown', handleGlobalKey);
+
     drawGrid(ctxMe, Array(20).fill(Array(10).fill(0)), BLK);
     drawGrid(ctxOpp, Array(20).fill(Array(10).fill(0)), BLK);
-    // ... 버튼 이벤트 연결 코드들 (기존 유지) ...
-    document.getElementById('mute-btn').onclick = (e) => {
-        const muted = toggleAudioMute(e.target);
-        if(muted) stopBGM();
-        else if(state.run && !state.isPaused) playBGM(state.currentBGM);
+    
+    setupEventListeners();
+
+    document.getElementById('ranking-overlay').onclick = (e) => {
+        if(e.target.id === 'ranking-overlay') closeRankingModal();
     };
-    document.getElementById('vol-slider').oninput = (e) => setAudioVolume(e.target.value);
+
+    document.getElementById('admin-msg-overlay').onclick = (e) => {
+        if(e.target.id === 'admin-msg-overlay') closeAdminModal();
+    };
+    document.getElementById('admin-close-x').onclick = closeAdminModal;
+};
+
+function setupEventListeners() {
+    document.getElementById('mute-btn').onclick = (e) => {
+        e.stopPropagation();
+        const dummyBtn = { innerText: '' }; 
+        const muted = toggleAudioMute(dummyBtn);
+        updateSpeakerIcon(muted);
+        
+        const slider = document.getElementById('vol-slider');
+        if (muted) {
+            slider.value = 0;
+            stopBGM();
+        } else {
+            slider.value = 50; 
+            setAudioVolume(50);
+            if(state.run && !state.isPaused && !state.isAutoMode) playBGM(state.currentBGM);
+        }
+    };
+
+    document.getElementById('vol-slider').oninput = (e) => {
+        const val = Number(e.target.value);
+        setAudioVolume(val);
+        updateSpeakerIcon(val === 0);
+    };
+
     document.getElementById('bgm-select').onchange = (e) => {
         state.currentBGM = e.target.value;
-        if(state.run && !state.isPaused) playBGM(state.currentBGM);
+        if(state.run && !state.isPaused && !state.isAutoMode) playBGM(state.currentBGM);
     };
-    // ... 나머지 이벤트 리스너들 (기존 유지) ...
-    document.getElementById('bgm-select').onclick = (e) => e.stopPropagation();
-    document.getElementById('vol-slider').onclick = (e) => e.stopPropagation();
+    
+    ['bgm-select', 'vol-slider', 'lang-btn', 'profile-trigger', 'file-in', 'nick-in', 'comment-in', 'heart-input'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.onclick = (e) => e.stopPropagation();
+    });
+
     document.getElementById('lang-btn').onclick = (e) => { e.stopPropagation(); toggleLangMenu(); };
     document.querySelectorAll('.lang-opt').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setLang(btn.dataset.lang); };
     });
-    document.getElementById('profile-trigger').onclick = (e) => { e.stopPropagation(); document.getElementById('file-in').click(); };
-    document.getElementById('file-in').onclick = (e) => e.stopPropagation();
+    
+    document.getElementById('profile-trigger').onclick = (e) => {
+        e.stopPropagation();
+        document.getElementById('file-in').click();
+    };
     document.getElementById('file-in').onchange = handleFile;
-    document.getElementById('nick-in').onclick = (e) => e.stopPropagation(); 
+
     document.getElementById('start-btn').onclick = (e) => { e.stopPropagation(); startCountdown(); };
+    document.getElementById('lobby-rank-btn').onclick = (e) => { e.stopPropagation(); openRankingModal(); };
+
     document.getElementById('quit-btn').onclick = (e) => { e.stopPropagation(); quitGame(); };
     document.getElementById('restart-btn').onclick = (e) => { e.stopPropagation(); restart(); };
     document.querySelectorAll('.btn-diff').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setDifficulty(btn.dataset.diff); };
     });
-};
+
+    document.getElementById('top-left-rank-btn').onclick = (e) => { e.stopPropagation(); openRankingModal(); };
+    document.getElementById('rank-close-x').onclick = (e) => { e.stopPropagation(); closeRankingModal(); };
+    document.getElementById('save-rank-btn').onclick = (e) => { e.stopPropagation(); handleSaveRank(); };
+    
+    document.getElementById('auto-mode-btn').onclick = (e) => {
+        e.stopPropagation();
+        closeResultAndStartAuto();
+    };
+
+    document.querySelectorAll('.rank-tab').forEach(tab => {
+        tab.onclick = (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            loadRankingData(Number(e.target.dataset.lvl));
+        };
+    });
+
+    ['heart-lobby', 'heart-result'].forEach(id => {
+        const container = document.getElementById(id);
+        if(!container) return;
+        
+        const icon = container.querySelector('.heart-icon-wrapper');
+        const text = container.querySelector('.heart-text');
+        const input = container.querySelector('.heart-input');
+
+        container.onclick = (e) => e.stopPropagation(); 
+        icon.onclick = (e) => { e.stopPropagation(); handleHeartIconClick(e); };
+        text.onclick = (e) => { e.stopPropagation(); handleHeartTextClick(text, input); };
+        input.onblur = () => resetHeartInput(text, input);
+        input.onkeydown = (e) => { 
+            if (e.key === 'Enter') handleHeartInputKey(e, text, input);
+            if (e.key === 'Escape') resetHeartInput(text, input);
+        };
+    });
+}
+
+function resetHeartInput(textEl, inputEl) {
+    inputEl.value = "";
+    inputEl.classList.add('hidden');
+    textEl.classList.remove('hidden');
+}
+
+async function handleHeartIconClick(e) {
+    state.heartClickCount++;
+
+    const myNick = localStorage.getItem('tetris_nick');
+    if (myNick === 'Hans' && state.curLang === 'ko' && state.heartClickCount % 10 === 0) {
+        openAdminModal();
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top;
+    
+    for(let i=0; i<3; i++) {
+        setTimeout(() => {
+            const heart = document.createElement('div');
+            heart.innerText = '❤️';
+            heart.className = 'floating-heart';
+            heart.style.left = (x + (Math.random() * 40 - 20)) + 'px';
+            heart.style.top = y + 'px';
+            document.body.appendChild(heart);
+            setTimeout(() => heart.remove(), 1500);
+        }, i * 100);
+    }
+
+    const count = await incrementHeartCount();
+    createFlyingCount(x, y, count);
+}
+
+async function openAdminModal() {
+    const overlay = document.getElementById('admin-msg-overlay');
+    overlay.classList.remove('hidden');
+    
+    const countEl = document.getElementById('admin-total-hearts');
+    const listDiv = document.getElementById('admin-msg-list');
+    
+    countEl.innerText = "💖 받은 하트: 불러오는 중...";
+    listDiv.innerHTML = '<div style="padding:20px; text-align:center;">로딩중...</div>';
+
+    const totalHearts = await getHeartCount();
+    countEl.innerText = `💖 받은 하트 총 개수: ${totalHearts.toLocaleString()}개`;
+
+    const msgs = await getHeartMessages();
+    renderAdminMessages(msgs);
+}
+
+function closeAdminModal() {
+    document.getElementById('admin-msg-overlay').classList.add('hidden');
+}
+
+function renderAdminMessages(msgs) {
+    const listDiv = document.getElementById('admin-msg-list');
+    if (msgs.length === 0) {
+        listDiv.innerHTML = '<div style="padding:20px; text-align:center;">메시지가 없습니다.</div>';
+        return;
+    }
+
+    let html = '';
+    msgs.forEach(m => {
+        html += `
+            <div class="msg-row">
+                <div class="msg-info">
+                    <span style="color:#0DFF72">${m.hartnickname}</span>
+                    <span style="color:#666; margin: 0 5px;">|</span>
+                    <span style="font-size:0.8rem">${m.dateStr}</span>
+                </div>
+                <div class="msg-body">${m.hartcomment}</div>
+            </div>
+        `;
+    });
+    listDiv.innerHTML = html;
+}
+
+function createFlyingCount(x, y, count) {
+    const el = document.createElement('div');
+    el.className = 'flying-count';
+    el.innerText = `+${count.toLocaleString()}`; 
+    el.style.left = x + 'px';
+    el.style.top = (y - 30) + 'px'; 
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+}
+
+function handleHeartTextClick(textEl, inputEl) {
+    inputEl.value = ""; 
+    textEl.classList.add('hidden');
+    inputEl.classList.remove('hidden');
+    inputEl.focus();
+}
+
+async function handleHeartInputKey(e, textEl, inputEl) {
+    const msg = e.target.value.trim();
+    if (!msg) {
+        resetHeartInput(textEl, inputEl);
+        return;
+    }
+
+    const nick = localStorage.getItem('tetris_nick') || "Anonymous";
+    await saveHeartComment(nick, msg);
+    
+    resetHeartInput(textEl, inputEl);
+    showToast("❤️ 감사합니다!");
+}
+
+function updateSpeakerIcon(isMuted) {
+    const wave = document.getElementById('spk-wave');
+    const cross = document.getElementById('spk-cross');
+    if (isMuted) {
+        wave.classList.add('hidden');
+        cross.classList.remove('hidden');
+    } else {
+        wave.classList.remove('hidden');
+        cross.classList.add('hidden');
+    }
+}
+
+function handleGlobalKey(e) {
+    if (state.isAutoMode) {
+        stopAutoModeAndStartGame();
+    } else {
+        if(!state.run || state.isPaused) return;
+        if(!document.getElementById('ranking-overlay').classList.contains('hidden')) return;
+        if(!document.getElementById('admin-msg-overlay').classList.contains('hidden')) return; 
+
+        if([32,37,38,39,40].includes(e.keyCode)) e.preventDefault();
+        if(e.keyCode===37) playerMove(-1); else if(e.keyCode===39) playerMove(1);
+        else if(e.keyCode===40) playerDrop(); else if(e.keyCode===38) playerRotate();
+        else if(e.keyCode===32) playerHardDrop();
+    }
+}
 
 function handleGlobalClick(e) {
     initAudio(); 
+    
+    // [수정] 언어 메뉴 외부 클릭 시 닫기
+    const langMenu = document.getElementById('lang-menu');
+    if (langMenu.classList.contains('show') && !e.target.closest('#lang-ctrl')) {
+        langMenu.classList.remove('show');
+        return; 
+    }
+    
+    if(!document.getElementById('ranking-overlay').classList.contains('hidden')) return;
+    if(!document.getElementById('admin-msg-overlay').classList.contains('hidden')) return;
+
+    if (state.isAutoMode) {
+        stopAutoModeAndStartGame();
+        return;
+    }
+
     if (!state.run || !document.getElementById('lobby').classList.contains('hidden')) return;
-    if (e.target.closest('button, input, select, label, .profile-container, #audio-ctrl, #lang-ctrl, .diff-ctrl')) return;
+    if (document.getElementById('result-area').style.display === 'flex') return;
+
+    if (e.target.closest('button, input, select, label, .profile-container, #audio-ctrl, #lang-ctrl, .diff-ctrl, .heart-container')) return;
+    
     togglePause();
+}
+
+function stopAutoModeAndStartGame() {
+    if (state.animationId) cancelAnimationFrame(state.animationId);
+    state.isAutoMode = false;
+    state.run = false;
+    document.getElementById('auto-msg-overlay').classList.add('hidden');
+    document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
+    startCountdown();
 }
 
 function togglePause() {
@@ -92,12 +329,11 @@ function togglePause() {
         if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         state.lastTime = performance.now(); 
         document.getElementById('timer').style.opacity = '1';
-        document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
-        loop();
+        document.getElementById('game-title').innerText = state.isAutoMode ? STRINGS[state.curLang].autoModeTitle : STRINGS[state.curLang].title;
+        loop(performance.now());
     }
 }
 
-// ... (detectAndSetLang, handleFile 등 중간 함수들은 기존 그대로 유지) ...
 function detectAndSetLang() {
     const browserLang = navigator.language || navigator.userLanguage; 
     if(browserLang.includes('ko')) setLang('ko');
@@ -120,23 +356,26 @@ function setLang(lang) {
     else if(lang === 'ja') document.body.classList.add('font-ja');
     else document.body.classList.add('font-en');
     updateCreditsUI(lang);
+    
     const nickIn = document.getElementById('nick-in');
     if(!nickIn.value) {
         document.getElementById('my-nick-side').innerText = S.me;
         document.getElementById('game-my-label').innerText = S.me;
     }
-    const resArea = document.getElementById('result-area');
-    if (getComputedStyle(resArea).display !== 'none') {
-        const txt = document.getElementById('res-text');
-        if (txt.classList.contains('win')) txt.innerText = S.winMsg;
-        else txt.innerText = S.loseMsg;
+    
+    const titleEl = document.getElementById('game-title');
+    if (state.isAutoMode) {
+        titleEl.innerText = S.autoModeTitle;
+    } else if (!state.isPaused) {
+        titleEl.innerText = S.title;
     }
-    if (!state.isPaused) document.getElementById('game-title').innerText = S.title;
+
     document.querySelectorAll('.lang-opt').forEach(btn => btn.classList.remove('active'));
     const idx = lang === 'ko' ? 0 : lang === 'ja' ? 1 : 2;
     document.querySelectorAll('.lang-opt')[idx].classList.add('active');
     document.getElementById('lang-menu').classList.remove('show');
 }
+
 function updateCreditsUI(lang) {
     const C = STRINGS[lang].credits;
     const dateStr = new Date().toLocaleDateString(lang === 'ko' ? 'ko-KR' : lang === 'ja' ? 'ja-JP' : 'en-US');
@@ -144,6 +383,7 @@ function updateCreditsUI(lang) {
     document.getElementById('credits-area').innerHTML = html;
 }
 function toggleLangMenu() { document.getElementById('lang-menu').classList.toggle('show'); }
+
 function handleFile(e) {
     if (e.target.files[0]) {
         const r = new FileReader();
@@ -155,6 +395,7 @@ function handleFile(e) {
                 c.getContext('2d').drawImage(img, 0, 0, 100, 100);
                 const data = c.toDataURL('image/jpeg', 0.8);
                 document.getElementById('preview-img').src = data;
+                document.getElementById('my-img').src = data;
                 localStorage.setItem('tetris_img', data);
             };
             img.src = ev.target.result;
@@ -162,6 +403,7 @@ function handleFile(e) {
         r.readAsDataURL(e.target.files[0]);
     }
 }
+
 function loadProfile() {
     const savedImg = localStorage.getItem('tetris_img') || DEFAULT_SVG;
     document.getElementById('preview-img').src = savedImg;
@@ -193,22 +435,36 @@ function setDifficulty(lvl) {
     document.querySelectorAll('.btn-diff').forEach(b => b.classList.remove('active'));
     const targetBtn = document.getElementById(`btn-${lvl}`);
     if(targetBtn) targetBtn.classList.add('active');
-    if(state.opponent.bot) state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot);
+    
+    if(state.run && state.opponent.bot && !state.isAutoMode) {
+        state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot);
+    }
 }
+
 function startCountdown() {
     initAudio(); stopBGM(); saveNick();
+    if (state.animationId) cancelAnimationFrame(state.animationId);
+    state.isAutoMode = false;
+    document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
+
     const m = Math.floor(state.duration / 60000);
     const s = Math.floor((state.duration % 60000) / 1000);
     document.getElementById('timer').innerText = `0${m}:${s<10?'0':''}${s}`;
+    
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('result-area').style.display = 'none';
-    document.getElementById('count-overlay').style.display = 'flex';
+    
+    const countOverlay = document.getElementById('count-overlay');
+    countOverlay.style.display = 'flex';
+    
     const msgEl = document.getElementById('count-msg');
     if(msgEl) msgEl.innerText = (state.difficulty === 'superHard') ? STRINGS[state.curLang].superHardMsg : "";
+    
     let count = 3;
     const cntEl = document.getElementById('count-text');
     cntEl.innerText = count;
     playSFX('count');
+    
     const timer = setInterval(() => {
         count--;
         if (count > 0) {
@@ -218,11 +474,12 @@ function startCountdown() {
             playSFX('count');
         } else {
             clearInterval(timer);
-            document.getElementById('count-overlay').style.display = 'none';
+            countOverlay.style.display = 'none';
             startAIGame();
         }
     }, 1000);
 }
+
 function startAIGame() {
     state.opponent.isAI = true;
     state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot); 
@@ -230,9 +487,13 @@ function startAIGame() {
     startGame();
 }
 
-// [수정됨] startGame 함수: 배경음악 랜덤 재생 로직 추가
 function startGame() {
+    if (state.animationId) cancelAnimationFrame(state.animationId);
+    
     state.run = true; state.isPaused = false;
+    state.isAutoMode = false;
+    state.autoBotLeft = null;
+
     state.grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
     state.grid[18] = genGarbage(); state.grid[19] = genGarbage();
     state.player.score = 0; state.stats = {atk:0, rec:0};
@@ -240,71 +501,129 @@ function startGame() {
     state.startTime = Date.now();
     state.lastTime = performance.now();
     state.bag = []; state.next = null;
+    
     initNextBlock(); resetPiece(); 
     updateUI();
     document.getElementById('quit-btn').classList.remove('hidden');
     playSFX('start'); 
     
-    // [중요] 랜덤 BGM 재생 및 UI 업데이트
     const randomBgmType = playRandomBGM(); 
     if (randomBgmType) {
-        state.currentBGM = randomBgmType; // 상태 업데이트
-        
-        // 드롭다운 메뉴(UI)도 현재 재생 중인 음악으로 변경
+        state.currentBGM = randomBgmType;
         const selectEl = document.getElementById('bgm-select');
         if(selectEl) selectEl.value = randomBgmType;
     }
+    
+    loop(performance.now());
+}
 
-    loop();
+function startAutoMode() {
+    if (state.animationId) cancelAnimationFrame(state.animationId);
+
+    state.run = true;
+    state.isPaused = false;
+    state.isAutoMode = true;
+    
+    state.autoBotLeft = new Bot('superHard', (lines) => {
+        if(state.opponent.bot) state.opponent.bot.receiveAtk(lines);
+        animateAttack('player', lines, null);
+    });
+    
+    state.opponent.bot = new Bot('superHard', (lines) => {
+        if(state.autoBotLeft) state.autoBotLeft.receiveAtk(lines);
+        animateAttack('opponent', lines, null);
+    });
+
+    document.getElementById('timer').innerText = "AUTO";
+    document.getElementById('game-title').innerText = STRINGS[state.curLang].autoModeTitle;
+    document.getElementById('auto-msg-overlay').classList.remove('hidden');
+    document.getElementById('quit-btn').classList.add('hidden');
+    
+    stopBGM();
+    state.lastTime = performance.now();
+    loop(performance.now());
 }
 
 function loop(time = 0) {
-    // ... (기존 루프 로직 유지) ...
     if(!state.run || state.isPaused) return; 
+    
     const dt = time - state.lastTime;
     state.lastTime = time;
+
+    if (state.isAutoMode) {
+        if(state.autoBotLeft) {
+            const resLeft = state.autoBotLeft.update(dt);
+            document.getElementById('s-my-score').innerText = state.autoBotLeft.score;
+            if(resLeft === "WIN") { resetAutoMode(); return; }
+        }
+        if(state.opponent.bot) {
+            const resRight = state.opponent.bot.update(dt);
+            document.getElementById('s-opp-score').innerText = state.opponent.bot.score;
+            if(resRight === "WIN") { resetAutoMode(); return; }
+        }
+        draw();
+        state.animationId = requestAnimationFrame(loop);
+        return;
+    }
+
     const elapsed = Date.now() - state.startTime;
     const left = Math.max(0, state.duration - elapsed);
     const m = Math.floor(left/60000);
     const s = Math.floor((left%60000)/1000);
     document.getElementById('timer').innerText = `0${m}:${s<10?'0':''}${s}`;
+    
     if(left <= 0) { endGame("TIME"); return; }
+    
     state.dropCounter += dt;
     if(state.dropCounter > state.dropInterval) playerDrop();
+    
     if(state.opponent.isAI && state.opponent.bot) {
         const res = state.opponent.bot.update(dt);
         document.getElementById('s-opp-score').innerText = state.opponent.bot.score; 
         if(res === "WIN") endGame("WIN"); 
         drawOpponent();
     }
+    
     draw(); 
     state.animationId = requestAnimationFrame(loop);
 }
 
-// ... (이하 나머지 함수들: animateAttack, getPieceFromBag, playerDrop 등 모두 기존 그대로 유지) ...
+function resetAutoMode() {
+    if (state.animationId) cancelAnimationFrame(state.animationId);
+    startAutoMode();
+}
+
 function animateAttack(sender, lines, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
     const srcEl = document.getElementById(srcId);
     const tgtEl = document.getElementById(tgtId);
     if(!srcEl || !tgtEl) { if(callback) callback(); return; }
+    
     const srcRect = srcEl.getBoundingClientRect();
     const tgtRect = tgtEl.getBoundingClientRect();
-    playSFX('swoosh');
+    
+    if (!state.isAutoMode) playSFX('swoosh');
+    
     const div = document.createElement('div');
-    div.className = 'attack-projectile';
+    div.className = 'attack-projectile'; 
+    
     const h = lines * 32; 
     div.style.width = srcRect.width + 'px';
     div.style.height = h + 'px';
     div.style.left = srcRect.left + 'px';
     div.style.top = (srcRect.bottom - h) + 'px'; 
+    
     document.body.appendChild(div);
+    
     const anim = div.animate([
         { left: srcRect.left + 'px', top: (srcRect.bottom - h) + 'px', opacity: 0.8, transform: 'scale(0.9)' },
         { left: tgtRect.left + 'px', top: (tgtRect.bottom - h) + 'px', opacity: 1, transform: 'scale(1)' }
     ], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
+    
     anim.onfinish = () => { div.remove(); if(callback) callback(); };
 }
+
 function getPieceFromBag() {
     if (state.bag.length === 0) state.bag = 'ILJOTSZ'.split('').sort(() => Math.random() - 0.5);
     return createPiece(state.bag.pop());
@@ -375,18 +694,25 @@ function receiveAtkFromBot(lines) {
 }
 function draw() {
     ctxMe.fillStyle = '#000'; ctxMe.fillRect(0,0,320,640);
-    drawGrid(ctxMe, state.grid, BLK); 
-    if(state.player.matrix) {
-        let gy = state.player.pos.y;
-        while(!collide(state.grid, {matrix:state.player.matrix, pos:{x:state.player.pos.x, y:gy+1}})) gy++;
-        drawMatrix(ctxMe, state.player.matrix, {x:state.player.pos.x, y:gy}, BLK, true);
-        drawMatrix(ctxMe, state.player.matrix, state.player.pos, BLK);
+    if (state.isAutoMode && state.autoBotLeft) {
+        drawGrid(ctxMe, state.autoBotLeft.getRenderGrid(), BLK);
+    } else {
+        drawGrid(ctxMe, state.grid, BLK); 
+        if(state.player.matrix) {
+            let gy = state.player.pos.y;
+            while(!collide(state.grid, {matrix:state.player.matrix, pos:{x:state.player.pos.x, y:gy+1}})) gy++;
+            drawMatrix(ctxMe, state.player.matrix, {x:state.player.pos.x, y:gy}, BLK, true);
+            drawMatrix(ctxMe, state.player.matrix, state.player.pos, BLK);
+        }
+    }
+    if (state.isAutoMode || (state.opponent.isAI && state.opponent.bot)) {
+        drawOpponent();
     }
 }
 function drawOpponent() {
     ctxOpp.fillStyle = '#000'; ctxOpp.fillRect(0,0,320,640);
     let g = state.opponent.grid;
-    if(state.opponent.isAI && state.opponent.bot) g = state.opponent.bot.getRenderGrid();
+    if(state.opponent.bot) g = state.opponent.bot.getRenderGrid();
     drawGrid(ctxOpp, g, BLK);
 }
 function drawGrid(ctx, grid, size) {
@@ -413,25 +739,6 @@ function drawNext() {
         state.next.forEach((r,y)=>r.forEach((v,x)=>{ if(v) drawBlock(ctxNext, x*bs+offX, y*bs+offY, bs, v); }));
     }
 }
-document.addEventListener('keydown', e => {
-    if(!state.run || state.isPaused) return;
-    if([32,37,38,39,40].includes(e.keyCode)) e.preventDefault();
-    if(e.keyCode===37) playerMove(-1); else if(e.keyCode===39) playerMove(1);
-    else if(e.keyCode===40) playerDrop(); else if(e.keyCode===38) playerRotate();
-    else if(e.keyCode===32) playerHardDrop();
-});
-document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-        if(state.run) { 
-            state.isPaused = true; 
-            state.pauseStartTime = Date.now(); 
-            cancelAnimationFrame(state.animationId); 
-            document.getElementById('timer').style.opacity = '0.3';
-            document.getElementById('game-title').innerText = "PAUSED"; 
-        }
-        if(audioCtx && audioCtx.state === 'running') audioCtx.suspend();
-    }
-});
 function updateUI() {
     document.getElementById('s-my-score').innerText = state.player.score;
     document.getElementById('s-atk').innerText = state.stats.atk;
@@ -442,31 +749,176 @@ function quitGame() {
     stopBGM(); 
     endGame("LOSE"); 
 }
-function endGame(res) {
+
+async function endGame(res) {
+    if(state.animationId) cancelAnimationFrame(state.animationId); 
     state.run = false; stopBGM();
+    
     document.getElementById('quit-btn').classList.add('hidden');
     document.getElementById('result-area').style.display='flex';
     document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
     document.getElementById('timer').style.opacity = '1';
+
+    document.getElementById('rank-save-area').classList.add('hidden');
     const txt = document.getElementById('res-text');
+
     if(res === "WIN") {
         txt.innerText = STRINGS[state.curLang].winMsg;
         txt.classList.add('win'); 
         fireConfetti();
         playEndSound('win'); 
         state.record.win++;
+
+        const levelNum = getAiLevelNum(state.difficulty);
+        const isTop10 = await checkIfRanker(levelNum, state.player.score);
+
+        if (isTop10 && state.player.score > 0) {
+            document.getElementById('rank-save-area').classList.remove('hidden');
+            document.getElementById('comment-in').value = "";
+            document.getElementById('save-rank-btn').disabled = false;
+            document.getElementById('save-rank-btn').innerText = STRINGS[state.curLang].saveRankBtn;
+        }
     } else {
         txt.innerText = STRINGS[state.curLang].loseMsg;
         txt.classList.remove('win');
         playEndSound('lose'); 
         state.record.lose++;
     }
+    
     localStorage.setItem('tetris_record', JSON.stringify(state.record));
     updateRecordUI();
 }
+
 function restart() {
     document.getElementById('result-area').style.display='none';
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     startCountdown();
 }
 function fireConfetti(){const e=Date.now()+3000;(function f(){confetti({particleCount:5,angle:60,origin:{x:0}});confetti({particleCount:5,angle:120,origin:{x:1}});if(Math.random()<0.1)playSFX('clear');if(Date.now()<e)requestAnimationFrame(f);})();}
+
+function getAiLevelNum(diffStr) {
+    switch(diffStr) {
+        case 'easy': return 1;
+        case 'normal': return 2;
+        case 'hard': return 3;
+        case 'superHard': return 4;
+        default: return 2;
+    }
+}
+function getCountryCode(lang) {
+    if (lang === 'ko') return 'KR';
+    if (lang === 'ja') return 'JP';
+    return 'US'; 
+}
+function closeResultAndStartAuto() {
+    document.getElementById('result-area').style.display = 'none';
+    startAutoMode();
+}
+
+async function handleSaveRank() {
+    const btn = document.getElementById('save-rank-btn');
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
+    const comment = document.getElementById('comment-in').value;
+    const nick = localStorage.getItem('tetris_nick') || "Unknown";
+    const data = {
+        ailevel: getAiLevelNum(state.difficulty),
+        score: state.player.score,
+        country: getCountryCode(state.curLang),
+        nickname: nick,
+        comment: comment
+    };
+
+    try {
+        const success = await saveRankData(data);
+        if(success) {
+            showToast(STRINGS[state.curLang].toastSaved);
+            document.getElementById('rank-save-area').classList.add('hidden');
+        } else {
+            throw new Error("Save returned false");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error saving rank.");
+        btn.disabled = false;
+        btn.innerText = STRINGS[state.curLang].saveRankBtn;
+    }
+}
+
+function openRankingModal() {
+    if (state.run && !state.isPaused) {
+        state.wasPausedByRank = true;
+        togglePause();
+    } else {
+        state.wasPausedByRank = false;
+    }
+
+    const overlay = document.getElementById('ranking-overlay');
+    overlay.classList.remove('hidden');
+
+    const currentDiffNum = getAiLevelNum(state.difficulty);
+    document.querySelectorAll('.rank-tab').forEach(t => {
+        t.classList.remove('active');
+        if(Number(t.dataset.lvl) === currentDiffNum) t.classList.add('active');
+    });
+
+    loadRankingData(currentDiffNum);
+}
+
+function closeRankingModal() {
+    document.getElementById('ranking-overlay').classList.add('hidden');
+    if (state.run && state.isPaused && state.wasPausedByRank) {
+        togglePause();
+    }
+}
+
+async function loadRankingData(levelNum) {
+    const listDiv = document.getElementById('ranking-list');
+    listDiv.innerHTML = '<div style="padding:20px;">Loading...</div>';
+
+    const ranks = await getRankingsByLevel(Number(levelNum));
+    
+    let html = '';
+    
+    if (ranks.length === 0) {
+        html = '<div style="padding:20px;">No Data</div>';
+    } else {
+        ranks.forEach((r, idx) => {
+            const flagUrl = `https://flagcdn.com/24x18/${r.country.toLowerCase()}.png`;
+            html += `
+                <div class="ranking-row">
+                    <div class="rank-idx">${idx + 1}</div>
+                    <div class="rank-nick">${r.nickname}</div>
+                    <div class="rank-country">
+                        <img src="${flagUrl}" alt="${r.country}" title="${r.country}">
+                    </div>
+                    <div class="rank-score">${r.ailevelscore.toLocaleString()}</div>
+                    <div class="rank-cmt">${r.usercomment}</div>
+                </div>
+            `;
+        });
+    }
+
+    const myNick = localStorage.getItem('tetris_nick') || "";
+    let isRanker = false;
+    if(myNick) {
+        isRanker = ranks.some(r => r.nickname === myNick);
+    }
+
+    if (ranks.length <= 5 && !isRanker) {
+        html += `<div class="rank-challenge">${STRINGS[state.curLang].challengeMsg}</div>`;
+    }
+
+    listDiv.innerHTML = html;
+}
+
+function showToast(msg) {
+    const el = document.getElementById('toast-msg');
+    el.innerText = msg;
+    el.classList.remove('hidden');
+    el.style.animation = 'none';
+    el.offsetHeight; 
+    el.style.animation = 'fade-in-out 3s forwards';
+    setTimeout(() => { el.classList.add('hidden'); }, 3000);
+}

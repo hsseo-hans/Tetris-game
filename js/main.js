@@ -12,10 +12,8 @@ const state = {
     bag: [], next: null, run: false, isPaused: false,
     dropCounter: 0, dropInterval: 1000, lastTime: 0,
     startTime: 0, 
-    
-    duration: 120000,
-    pauseStartTime: 0,  // [추가] 일시정지 시작 시간 기록용 변수
-
+    duration: 120000,   // 2분
+    pauseStartTime: 0,  // 일시정지 시간 기록용
     animationId: null,
     currentBGM: 'classicA',
     curLang: 'en'
@@ -34,7 +32,7 @@ window.onload = () => {
     detectAndSetLang();
     try { loadProfile(); } catch(e) { localStorage.clear(); loadProfile(); }
     
-    // [수정됨] 클릭 이벤트 통합 관리 (오디오 초기화 + 배경 클릭 시 일시정지)
+    // 클릭 이벤트 통합 관리 (오디오 초기화 + 배경 클릭 시 일시정지)
     document.addEventListener('click', handleGlobalClick);
     
     // Grid Init
@@ -52,7 +50,7 @@ window.onload = () => {
         state.currentBGM = e.target.value;
         if(state.run && !state.isPaused) playBGM(state.currentBGM);
     };
-    // 이벤트 전파 방지 (배경 클릭으로 인식되지 않도록)
+    // 이벤트 전파 방지
     document.getElementById('bgm-select').onclick = (e) => e.stopPropagation();
     document.getElementById('vol-slider').onclick = (e) => e.stopPropagation();
     
@@ -66,7 +64,7 @@ window.onload = () => {
     document.getElementById('profile-trigger').onclick = (e) => { e.stopPropagation(); document.getElementById('file-in').click(); };
     document.getElementById('file-in').onclick = (e) => e.stopPropagation();
     document.getElementById('file-in').onchange = handleFile;
-    document.getElementById('nick-in').onclick = (e) => e.stopPropagation(); // 입력창 클릭 시 정지 방지
+    document.getElementById('nick-in').onclick = (e) => e.stopPropagation(); 
     
     // Game Control
     document.getElementById('start-btn').onclick = (e) => { e.stopPropagation(); startCountdown(); };
@@ -79,44 +77,37 @@ window.onload = () => {
     });
 };
 
-// [추가됨] 전역 클릭 핸들러: 배경 클릭 시 일시정지 처리
+// 전역 클릭 핸들러
 function handleGlobalClick(e) {
-    initAudio(); // 브라우저 정책상 첫 클릭 시 오디오 컨텍스트 활성화
+    initAudio(); 
 
-    // 게임이 실행 중이지 않거나, 로비 화면이 떠 있다면 무시
     if (!state.run || !document.getElementById('lobby').classList.contains('hidden')) return;
 
-    // 기능 동작 영역(버튼, 입력창, 컨트롤 등)을 클릭했다면 무시
-    // closest를 사용하여 클릭한 요소의 조상 중에 해당 태그나 클래스가 있는지 확인
+    // 기능 영역 클릭 시 일시정지 무시
     if (e.target.closest('button, input, select, label, .profile-container, #audio-ctrl, #lang-ctrl, .diff-ctrl')) {
         return;
     }
 
-    // 그 외 영역(배경)을 클릭했으므로 일시정지 토글
     togglePause();
 }
 
-// [추가됨] 일시정지 토글 함수
-// js/main.js 하단부 togglePause 함수 교체
-
+// 일시정지 토글 함수
 function togglePause() {
     state.isPaused = !state.isPaused;
 
     if (state.isPaused) {
-        // [추가] 멈춘 시각 기록
         state.pauseStartTime = Date.now();
-        
         cancelAnimationFrame(state.animationId);
         if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
         
         document.getElementById('timer').style.opacity = '0.3';
         document.getElementById('game-title').innerText = "PAUSED"; 
     } else {
-        // [추가] 재개 시, (현재 시간 - 멈춘 시각) 만큼 시작 시간을 뒤로 미룸
+        // 일시정지 했던 만큼 시작 시간 보정
         if (state.pauseStartTime > 0) {
             const pausedDuration = Date.now() - state.pauseStartTime;
             state.startTime += pausedDuration;
-            state.pauseStartTime = 0; // 초기화
+            state.pauseStartTime = 0;
         }
 
         if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
@@ -126,6 +117,7 @@ function togglePause() {
         loop();
     }
 }
+
 // --- Language ---
 function detectAndSetLang() {
     const browserLang = navigator.language || navigator.userLanguage; 
@@ -167,7 +159,6 @@ function setLang(lang) {
         else txt.innerText = S.loseMsg;
     }
     
-    // 일시정지 상태가 아닐 때만 제목 업데이트
     if (!state.isPaused) {
         document.getElementById('game-title').innerText = S.title;
     }
@@ -245,19 +236,16 @@ function setDifficulty(lvl) {
     if(state.opponent.bot) state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot);
 }
 
-// js/main.js 의 startCountdown 함수 수정
-
 function startCountdown() {
     initAudio();
     stopBGM();
     saveNick();
     
-    // [추가] 카운트다운 시작 시 타이머를 강제로 2분(설정된 시간)으로 초기화
-    // 이걸 안 하면 이전 게임의 시간(00:00)이나 3분이 보입니다.
+    // 카운트다운 시작 시 타이머 2분으로 초기화
     const m = Math.floor(state.duration / 60000);
     const s = Math.floor((state.duration % 60000) / 1000);
     document.getElementById('timer').innerText = `0${m}:${s<10?'0':''}${s}`;
-    
+
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('result-area').style.display = 'none';
     document.getElementById('count-overlay').style.display = 'flex';
@@ -317,12 +305,15 @@ function startGame() {
     loop();
 }
 
+// [복구됨] 안정적인 루프 함수 (드래그 시 멈춤 발생할 수 있으나 AI/낙하 정상 동작)
 function loop(time = 0) {
     if(!state.run || state.isPaused) return; 
     const dt = time - state.lastTime;
     state.lastTime = time;
 
-    const left = Math.max(0, state.duration - (Date.now() - state.startTime));
+    const elapsed = Date.now() - state.startTime;
+    const left = Math.max(0, state.duration - elapsed);
+    
     const m = Math.floor(left/60000);
     const s = Math.floor((left%60000)/1000);
     document.getElementById('timer').innerText = `0${m}:${s<10?'0':''}${s}`;
@@ -458,23 +449,33 @@ document.addEventListener('keydown', e => {
     else if(e.keyCode===32) playerHardDrop();
 });
 
-// [수정] 탭 전환 시 자동 일시정지 (오디오 포함)
+// [복구됨] 탭 전환 시 자동 일시정지 (오디오 포함)
 document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
         if(state.run) { 
             state.isPaused = true; 
+            state.pauseStartTime = Date.now(); // 시간 멈춤 기록
             cancelAnimationFrame(state.animationId); 
+            
+            // 시각적 효과
+            document.getElementById('timer').style.opacity = '0.3';
+            document.getElementById('game-title').innerText = "PAUSED"; 
         }
         if(audioCtx && audioCtx.state === 'running') {
             audioCtx.suspend();
         }
     } else {
         // [주의] 탭 복귀 시 자동으로 재생하지 않음 (사용자 클릭 유도)
-        // 만약 자동으로 재생하고 싶다면 아래 주석 해제
         /*
         if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         if (state.run && state.isPaused) { 
             state.isPaused = false; 
+            // 멈췄던 시간만큼 보정
+             if (state.pauseStartTime > 0) {
+                const pausedDuration = Date.now() - state.pauseStartTime;
+                state.startTime += pausedDuration;
+                state.pauseStartTime = 0;
+            }
             state.lastTime = performance.now();
             loop(); 
         }

@@ -13,7 +13,7 @@ const state = {
     dropCounter: 0, dropInterval: 1000, lastTime: 0,
     startTime: 0, 
     duration: 120000,   // 2분
-    pauseStartTime: 0,  // 일시정지 시간 기록용
+    pauseStartTime: 0,  
     animationId: null,
     currentBGM: 'classicA',
     curLang: 'en'
@@ -32,14 +32,11 @@ window.onload = () => {
     detectAndSetLang();
     try { loadProfile(); } catch(e) { localStorage.clear(); loadProfile(); }
     
-    // 클릭 이벤트 통합 관리 (오디오 초기화 + 배경 클릭 시 일시정지)
     document.addEventListener('click', handleGlobalClick);
     
-    // Grid Init
     drawGrid(ctxMe, Array(20).fill(Array(10).fill(0)), BLK);
     drawGrid(ctxOpp, Array(20).fill(Array(10).fill(0)), BLK);
     
-    // Audio UI
     document.getElementById('mute-btn').onclick = (e) => {
         const muted = toggleAudioMute(e.target);
         if(muted) stopBGM();
@@ -50,66 +47,48 @@ window.onload = () => {
         state.currentBGM = e.target.value;
         if(state.run && !state.isPaused) playBGM(state.currentBGM);
     };
-    // 이벤트 전파 방지
     document.getElementById('bgm-select').onclick = (e) => e.stopPropagation();
     document.getElementById('vol-slider').onclick = (e) => e.stopPropagation();
     
-    // Lang
     document.getElementById('lang-btn').onclick = (e) => { e.stopPropagation(); toggleLangMenu(); };
     document.querySelectorAll('.lang-opt').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setLang(btn.dataset.lang); };
     });
 
-    // Profile
     document.getElementById('profile-trigger').onclick = (e) => { e.stopPropagation(); document.getElementById('file-in').click(); };
     document.getElementById('file-in').onclick = (e) => e.stopPropagation();
     document.getElementById('file-in').onchange = handleFile;
     document.getElementById('nick-in').onclick = (e) => e.stopPropagation(); 
     
-    // Game Control
     document.getElementById('start-btn').onclick = (e) => { e.stopPropagation(); startCountdown(); };
     document.getElementById('quit-btn').onclick = (e) => { e.stopPropagation(); quitGame(); };
     document.getElementById('restart-btn').onclick = (e) => { e.stopPropagation(); restart(); };
     
-    // Difficulty
     document.querySelectorAll('.btn-diff').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setDifficulty(btn.dataset.diff); };
     });
 };
 
-// 전역 클릭 핸들러
 function handleGlobalClick(e) {
     initAudio(); 
-
     if (!state.run || !document.getElementById('lobby').classList.contains('hidden')) return;
-
-    // 기능 영역 클릭 시 일시정지 무시
-    if (e.target.closest('button, input, select, label, .profile-container, #audio-ctrl, #lang-ctrl, .diff-ctrl')) {
-        return;
-    }
-
+    if (e.target.closest('button, input, select, label, .profile-container, #audio-ctrl, #lang-ctrl, .diff-ctrl')) return;
     togglePause();
 }
 
-// 일시정지 토글 함수
 function togglePause() {
     state.isPaused = !state.isPaused;
-
     if (state.isPaused) {
         state.pauseStartTime = Date.now();
         cancelAnimationFrame(state.animationId);
         if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
-        
         document.getElementById('timer').style.opacity = '0.3';
         document.getElementById('game-title').innerText = "PAUSED"; 
     } else {
-        // 일시정지 했던 만큼 시작 시간 보정
         if (state.pauseStartTime > 0) {
-            const pausedDuration = Date.now() - state.pauseStartTime;
-            state.startTime += pausedDuration;
+            state.startTime += (Date.now() - state.pauseStartTime);
             state.pauseStartTime = 0;
         }
-
         if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         state.lastTime = performance.now(); 
         document.getElementById('timer').style.opacity = '1';
@@ -125,11 +104,9 @@ function detectAndSetLang() {
     else if(browserLang.includes('ja')) setLang('ja');
     else setLang('en');
 }
-
 function setLang(lang) {
     state.curLang = lang;
     const S = STRINGS[lang];
-    
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         if(S[key]) el.innerText = S[key];
@@ -138,49 +115,35 @@ function setLang(lang) {
         const key = el.getAttribute('data-i18n-ph');
         if(S[key]) el.placeholder = S[key];
     });
-
     document.body.className = '';
     if(lang === 'ko') document.body.classList.add('font-ko');
     else if(lang === 'ja') document.body.classList.add('font-ja');
     else document.body.classList.add('font-en');
-
     updateCreditsUI(lang);
-    
     const nickIn = document.getElementById('nick-in');
     if(!nickIn.value) {
         document.getElementById('my-nick-side').innerText = S.me;
         document.getElementById('game-my-label').innerText = S.me;
     }
-
     const resArea = document.getElementById('result-area');
     if (getComputedStyle(resArea).display !== 'none') {
         const txt = document.getElementById('res-text');
         if (txt.classList.contains('win')) txt.innerText = S.winMsg;
         else txt.innerText = S.loseMsg;
     }
-    
-    if (!state.isPaused) {
-        document.getElementById('game-title').innerText = S.title;
-    }
-
+    if (!state.isPaused) document.getElementById('game-title').innerText = S.title;
     document.querySelectorAll('.lang-opt').forEach(btn => btn.classList.remove('active'));
     const idx = lang === 'ko' ? 0 : lang === 'ja' ? 1 : 2;
     document.querySelectorAll('.lang-opt')[idx].classList.add('active');
     document.getElementById('lang-menu').classList.remove('show');
 }
-
 function updateCreditsUI(lang) {
     const C = STRINGS[lang].credits;
     const dateStr = new Date().toLocaleDateString(lang === 'ko' ? 'ko-KR' : lang === 'ja' ? 'ja-JP' : 'en-US');
     const html = `${C.pdLabel} <span>${C.pdName}</span><br>${C.devLabel} <span>${C.devName}</span><br>${C.timeLabel} <span>${C.timeVal}</span> (${dateStr})`;
     document.getElementById('credits-area').innerHTML = html;
 }
-
-function toggleLangMenu() {
-    document.getElementById('lang-menu').classList.toggle('show');
-}
-
-// --- Profile ---
+function toggleLangMenu() { document.getElementById('lang-menu').classList.toggle('show'); }
 function handleFile(e) {
     if (e.target.files[0]) {
         const r = new FileReader();
@@ -207,7 +170,6 @@ function loadProfile() {
     if(savedNick) document.getElementById('nick-in').value = savedNick;
     const rec = JSON.parse(localStorage.getItem('tetris_record') || '{"win":0,"lose":0}');
     state.record = rec;
-    
     const total = rec.win + rec.lose;
     const ratio = total > 0 ? rec.win / total : 0;
     if(ratio >= 0.7) setDifficulty('hard');
@@ -237,33 +199,19 @@ function setDifficulty(lvl) {
 }
 
 function startCountdown() {
-    initAudio();
-    stopBGM();
-    saveNick();
-    
-    // 카운트다운 시작 시 타이머 2분으로 초기화
+    initAudio(); stopBGM(); saveNick();
     const m = Math.floor(state.duration / 60000);
     const s = Math.floor((state.duration % 60000) / 1000);
     document.getElementById('timer').innerText = `0${m}:${s<10?'0':''}${s}`;
-
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('result-area').style.display = 'none';
     document.getElementById('count-overlay').style.display = 'flex';
-    
     const msgEl = document.getElementById('count-msg');
-    if(msgEl) {
-        if (state.difficulty === 'superHard') {
-            msgEl.innerText = STRINGS[state.curLang].superHardMsg;
-        } else {
-            msgEl.innerText = "";
-        }
-    }
-    
+    if(msgEl) msgEl.innerText = (state.difficulty === 'superHard') ? STRINGS[state.curLang].superHardMsg : "";
     let count = 3;
     const cntEl = document.getElementById('count-text');
     cntEl.innerText = count;
     playSFX('count');
-
     const timer = setInterval(() => {
         count--;
         if (count > 0) {
@@ -295,34 +243,26 @@ function startGame() {
     state.startTime = Date.now();
     state.lastTime = performance.now();
     state.bag = []; state.next = null;
-
     initNextBlock(); resetPiece(); 
     updateUI();
     document.getElementById('quit-btn').classList.remove('hidden');
-    
     playSFX('start'); 
     playBGM(state.currentBGM);
     loop();
 }
 
-// [복구됨] 안정적인 루프 함수 (드래그 시 멈춤 발생할 수 있으나 AI/낙하 정상 동작)
 function loop(time = 0) {
     if(!state.run || state.isPaused) return; 
     const dt = time - state.lastTime;
     state.lastTime = time;
-
     const elapsed = Date.now() - state.startTime;
     const left = Math.max(0, state.duration - elapsed);
-    
     const m = Math.floor(left/60000);
     const s = Math.floor((left%60000)/1000);
     document.getElementById('timer').innerText = `0${m}:${s<10?'0':''}${s}`;
-    
     if(left <= 0) { endGame("TIME"); return; }
-
     state.dropCounter += dt;
     if(state.dropCounter > state.dropInterval) playerDrop();
-
     if(state.opponent.isAI && state.opponent.bot) {
         const res = state.opponent.bot.update(dt);
         document.getElementById('s-opp-score').innerText = state.opponent.bot.score; 
@@ -331,6 +271,46 @@ function loop(time = 0) {
     }
     draw(); 
     state.animationId = requestAnimationFrame(loop);
+}
+
+// [수정됨] 공격 애니메이션 (소리 추가)
+function animateAttack(sender, lines, callback) {
+    const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
+    const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
+    const srcEl = document.getElementById(srcId);
+    const tgtEl = document.getElementById(tgtId);
+    
+    if(!srcEl || !tgtEl) { if(callback) callback(); return; }
+
+    const srcRect = srcEl.getBoundingClientRect();
+    const tgtRect = tgtEl.getBoundingClientRect();
+
+    // [추가] 공격 소리 재생 (슈웅~)
+    playSFX('swoosh');
+
+    const div = document.createElement('div');
+    div.className = 'attack-projectile';
+    
+    const h = lines * 32; 
+    div.style.width = srcRect.width + 'px';
+    div.style.height = h + 'px';
+    div.style.left = srcRect.left + 'px';
+    div.style.top = (srcRect.bottom - h) + 'px'; 
+
+    document.body.appendChild(div);
+
+    const anim = div.animate([
+        { left: srcRect.left + 'px', top: (srcRect.bottom - h) + 'px', opacity: 0.8, transform: 'scale(0.9)' },
+        { left: tgtRect.left + 'px', top: (tgtRect.bottom - h) + 'px', opacity: 1, transform: 'scale(1)' }
+    ], {
+        duration: 600, 
+        easing: 'cubic-bezier(0.25, 1, 0.5, 1)' 
+    });
+
+    anim.onfinish = () => {
+        div.remove(); 
+        if(callback) callback(); 
+    };
 }
 
 // --- Player Core ---
@@ -388,14 +368,27 @@ function checkLines() {
     }
     if(lines > 0) {
         state.player.score += lines * 100; state.stats.atk += lines;
-        if(state.opponent.isAI && state.opponent.bot) state.opponent.bot.receiveAtk(lines);
+        
         playSFX('clear'); updateUI();
+
+        if(state.opponent.isAI && state.opponent.bot) {
+            animateAttack('player', lines, () => {
+                state.opponent.bot.receiveAtk(lines);
+            });
+        }
     }
 }
+
 function receiveAtkFromBot(lines) {
-    state.stats.rec += lines; updateUI();
-    for(let i=0; i<lines; i++) { state.grid.shift(); state.grid.push(genGarbage()); }
-    playSFX('attack'); draw();
+    animateAttack('opponent', lines, () => {
+        state.stats.rec += lines; updateUI();
+        for(let i=0; i<lines; i++) { 
+            state.grid.shift(); 
+            state.grid.push(genGarbage()); 
+        }
+        playSFX('attack'); 
+        draw(); 
+    });
 }
 
 // --- Drawing ---
@@ -449,37 +442,16 @@ document.addEventListener('keydown', e => {
     else if(e.keyCode===32) playerHardDrop();
 });
 
-// [복구됨] 탭 전환 시 자동 일시정지 (오디오 포함)
 document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
         if(state.run) { 
             state.isPaused = true; 
-            state.pauseStartTime = Date.now(); // 시간 멈춤 기록
+            state.pauseStartTime = Date.now(); 
             cancelAnimationFrame(state.animationId); 
-            
-            // 시각적 효과
             document.getElementById('timer').style.opacity = '0.3';
             document.getElementById('game-title').innerText = "PAUSED"; 
         }
-        if(audioCtx && audioCtx.state === 'running') {
-            audioCtx.suspend();
-        }
-    } else {
-        // [주의] 탭 복귀 시 자동으로 재생하지 않음 (사용자 클릭 유도)
-        /*
-        if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-        if (state.run && state.isPaused) { 
-            state.isPaused = false; 
-            // 멈췄던 시간만큼 보정
-             if (state.pauseStartTime > 0) {
-                const pausedDuration = Date.now() - state.pauseStartTime;
-                state.startTime += pausedDuration;
-                state.pauseStartTime = 0;
-            }
-            state.lastTime = performance.now();
-            loop(); 
-        }
-        */
+        if(audioCtx && audioCtx.state === 'running') audioCtx.suspend();
     }
 });
 
@@ -499,8 +471,6 @@ function endGame(res) {
     state.run = false; stopBGM();
     document.getElementById('quit-btn').classList.add('hidden');
     document.getElementById('result-area').style.display='flex';
-    
-    // 게임 종료 시 제목 원래대로 복구
     document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
     document.getElementById('timer').style.opacity = '1';
 
@@ -517,7 +487,6 @@ function endGame(res) {
         playEndSound('lose'); 
         state.record.lose++;
     }
-    
     localStorage.setItem('tetris_record', JSON.stringify(state.record));
     updateRecordUI();
 }

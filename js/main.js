@@ -41,6 +41,9 @@ window.onload = () => {
     
     setupEventListeners();
 
+    // 결과창 배경 클릭 이벤트 제거 (요청사항 반영)
+    // document.getElementById('result-area').onclick... 삭제됨
+
     document.getElementById('ranking-overlay').onclick = (e) => {
         if(e.target.id === 'ranking-overlay') closeRankingModal();
     };
@@ -134,6 +137,7 @@ function setupEventListeners() {
         container.onclick = (e) => e.stopPropagation(); 
         icon.onclick = (e) => { e.stopPropagation(); handleHeartIconClick(e); };
         text.onclick = (e) => { e.stopPropagation(); handleHeartTextClick(text, input); };
+        
         input.onblur = () => resetHeartInput(text, input);
         input.onkeydown = (e) => { 
             if (e.key === 'Enter') handleHeartInputKey(e, text, input);
@@ -281,7 +285,7 @@ function handleGlobalKey(e) {
 function handleGlobalClick(e) {
     initAudio(); 
     
-    // [수정] 언어 메뉴 외부 클릭 시 닫기
+    // 언어 메뉴 닫기 로직
     const langMenu = document.getElementById('lang-menu');
     if (langMenu.classList.contains('show') && !e.target.closest('#lang-ctrl')) {
         langMenu.classList.remove('show');
@@ -593,6 +597,7 @@ function resetAutoMode() {
     startAutoMode();
 }
 
+// [수정] 반응형 공격 미사일 높이 계산
 function animateAttack(sender, lines, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
@@ -608,7 +613,10 @@ function animateAttack(sender, lines, callback) {
     const div = document.createElement('div');
     div.className = 'attack-projectile'; 
     
-    const h = lines * 32; 
+    // [중요] 실제 렌더링된 한 칸 높이 계산
+    const oneBlockHeight = srcRect.height / ROWS;
+    const h = lines * oneBlockHeight;
+    
     div.style.width = srcRect.width + 'px';
     div.style.height = h + 'px';
     div.style.left = srcRect.left + 'px';

@@ -19,7 +19,6 @@ const state = {
     curLang: 'en'
 };
 
-// --- DOM Elements ---
 const canvasMe = document.getElementById('my-tetris');
 const ctxMe = canvasMe.getContext('2d');
 const canvasOpp = document.getElementById('opp-tetris');
@@ -27,7 +26,6 @@ const ctxOpp = canvasOpp.getContext('2d');
 const canvasNext = document.getElementById('next-canvas');
 const ctxNext = canvasNext.getContext('2d');
 
-// --- Initialization ---
 window.onload = () => {
     detectAndSetLang();
     try { loadProfile(); } catch(e) { localStorage.clear(); loadProfile(); }
@@ -97,7 +95,6 @@ function togglePause() {
     }
 }
 
-// --- Language ---
 function detectAndSetLang() {
     const browserLang = navigator.language || navigator.userLanguage; 
     if(browserLang.includes('ko')) setLang('ko');
@@ -189,7 +186,6 @@ function updateRecordUI() {
     document.getElementById('rec-lose').innerText = state.record.lose;
 }
 
-// --- Game Logic ---
 function setDifficulty(lvl) {
     state.difficulty = lvl;
     document.querySelectorAll('.btn-diff').forEach(b => b.classList.remove('active'));
@@ -273,47 +269,30 @@ function loop(time = 0) {
     state.animationId = requestAnimationFrame(loop);
 }
 
-// [수정됨] 공격 애니메이션 (소리 추가)
 function animateAttack(sender, lines, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
     const srcEl = document.getElementById(srcId);
     const tgtEl = document.getElementById(tgtId);
-    
     if(!srcEl || !tgtEl) { if(callback) callback(); return; }
-
     const srcRect = srcEl.getBoundingClientRect();
     const tgtRect = tgtEl.getBoundingClientRect();
-
-    // [추가] 공격 소리 재생 (슈웅~)
     playSFX('swoosh');
-
     const div = document.createElement('div');
     div.className = 'attack-projectile';
-    
     const h = lines * 32; 
     div.style.width = srcRect.width + 'px';
     div.style.height = h + 'px';
     div.style.left = srcRect.left + 'px';
     div.style.top = (srcRect.bottom - h) + 'px'; 
-
     document.body.appendChild(div);
-
     const anim = div.animate([
         { left: srcRect.left + 'px', top: (srcRect.bottom - h) + 'px', opacity: 0.8, transform: 'scale(0.9)' },
         { left: tgtRect.left + 'px', top: (tgtRect.bottom - h) + 'px', opacity: 1, transform: 'scale(1)' }
-    ], {
-        duration: 600, 
-        easing: 'cubic-bezier(0.25, 1, 0.5, 1)' 
-    });
-
-    anim.onfinish = () => {
-        div.remove(); 
-        if(callback) callback(); 
-    };
+    ], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
+    anim.onfinish = () => { div.remove(); if(callback) callback(); };
 }
 
-// --- Player Core ---
 function getPieceFromBag() {
     if (state.bag.length === 0) state.bag = 'ILJOTSZ'.split('').sort(() => Math.random() - 0.5);
     return createPiece(state.bag.pop());
@@ -357,7 +336,6 @@ function playerRotate() {
     }
     draw();
 }
-
 function checkLines() {
     let lines = 0;
     outer: for(let y=ROWS-1; y>0; --y) {
@@ -368,9 +346,7 @@ function checkLines() {
     }
     if(lines > 0) {
         state.player.score += lines * 100; state.stats.atk += lines;
-        
         playSFX('clear'); updateUI();
-
         if(state.opponent.isAI && state.opponent.bot) {
             animateAttack('player', lines, () => {
                 state.opponent.bot.receiveAtk(lines);
@@ -378,20 +354,13 @@ function checkLines() {
         }
     }
 }
-
 function receiveAtkFromBot(lines) {
     animateAttack('opponent', lines, () => {
         state.stats.rec += lines; updateUI();
-        for(let i=0; i<lines; i++) { 
-            state.grid.shift(); 
-            state.grid.push(genGarbage()); 
-        }
-        playSFX('attack'); 
-        draw(); 
+        for(let i=0; i<lines; i++) { state.grid.shift(); state.grid.push(genGarbage()); }
+        playSFX('attack'); draw();
     });
 }
-
-// --- Drawing ---
 function draw() {
     ctxMe.fillStyle = '#000'; ctxMe.fillRect(0,0,320,640);
     drawGrid(ctxMe, state.grid, BLK); 
@@ -432,8 +401,6 @@ function drawNext() {
         state.next.forEach((r,y)=>r.forEach((v,x)=>{ if(v) drawBlock(ctxNext, x*bs+offX, y*bs+offY, bs, v); }));
     }
 }
-
-// --- Controls ---
 document.addEventListener('keydown', e => {
     if(!state.run || state.isPaused) return;
     if([32,37,38,39,40].includes(e.keyCode)) e.preventDefault();
@@ -478,7 +445,7 @@ function endGame(res) {
     if(res === "WIN") {
         txt.innerText = STRINGS[state.curLang].winMsg;
         txt.classList.add('win'); 
-        fireConfetti();
+        fireConfetti(); // 이 함수 안에서 폭죽 소리를 재생하도록 수정됨
         playEndSound('win'); 
         state.record.win++;
     } else {
@@ -496,4 +463,19 @@ function restart() {
     if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     startCountdown();
 }
-function fireConfetti(){const e=Date.now()+3000;(function f(){confetti({particleCount:5,angle:60,origin:{x:0}});confetti({particleCount:5,angle:120,origin:{x:1}});if(Date.now()<e)requestAnimationFrame(f);})();}
+
+// [수정] 폭죽 효과 + 소리 재생 기능 추가
+function fireConfetti(){
+    const e = Date.now() + 3000;
+    (function f(){
+        confetti({particleCount:5, angle:60, origin:{x:0}});
+        confetti({particleCount:5, angle:120, origin:{x:1}});
+        
+        // [추가됨] 10% 확률로 '팡!' 소리 재생 (clear 사운드 활용)
+        if (Math.random() < 0.1) {
+            playSFX('clear');
+        }
+
+        if(Date.now() < e) requestAnimationFrame(f);
+    })();
+}

@@ -20,15 +20,17 @@
     <button class="btn-danger hidden" id="quit-btn" data-i18n="quit">🏳️ 포기</button>
 
     <div id="audio-ctrl">
-        <span id="mute-btn" style="cursor:pointer; font-size:1.5rem;">🔊</span>
-        <input type="range" id="vol-slider" min="0" max="100" step="1" value="10" style="width:100px" title="Volume">
+        <button id="mute-btn" style="background:none; border:none; font-size:2rem; cursor:pointer;">🔊</button>
+        <input type="range" id="vol-slider" min="0" max="1" step="0.1" value="0.5" style="width:80px;">
+        
         <select id="bgm-select">
-            <option value="classicA" selected>Original A (Full)</option>
-            <option value="bradinsky">Bradinsky (Techno)</option>
-            <option value="guitar">Guitar Rock Ver.</option>
-            <option value="themeB">Theme B (Full)</option>
-        </select>
-    </div>
+            <option value="classicA">Original A (Classic)</option>
+            <option value="troika">Troika</option>
+            <option value="bradinsky">Bradinsky</option>
+            <option value="loginska">Loginska</option>
+            <option value="karinka">Karinka (NES)</option>
+        </select>        
+    </div>    </div>
 
     <div id="lang-ctrl">
         <div id="lang-menu">

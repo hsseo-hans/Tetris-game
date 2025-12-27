@@ -6,22 +6,27 @@ let gainNode = null;
 let isMuted = false;
 let volume = 0.5;
 
-// 효과음 파일 목록 (슈웅~ 소리 추가됨: swoosh)
+// [수정됨] 1개의 외부 링크 + 4개의 로컬 파일 (bgm 폴더)
 const SOUNDS = {
+    // 1. 기존 유지 (외부 링크)
     bgm_classicA: 'https://archive.org/download/TetrisThemeMusic/Tetris.mp3',
-    bgm_classicB: 'https://ia800504.us.archive.org/11/items/TetrisThemeMusic/Tetris%20Theme%20Music%20B.mp3',
-    bgm_fast: 'https://ia800504.us.archive.org/11/items/TetrisThemeMusic/Tetris%20Theme%20Music%20C.mp3',
     
-    start: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // 게임 시작음
-    drop: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',  // 블럭 놓기
-    clear: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // 라인 클리어
-    attack: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // 공격 받음
-    count: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // 카운트다운
-    win: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',   // 승리
-    lose: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',  // 패배
+    // 2. 로컬 파일 (bgm 폴더 안의 파일들)
+    // 주의: 파일명이 PC에 있는 것과 띄어쓰기/대소문자까지 정확히 일치해야 합니다.
+    bgm_troika: 'bgm/Tetris-Troika-tetis.mp3',
+    bgm_bradinsky: 'bgm/Tetris-Bradinsky-tetis.mp3',
+    bgm_loginska: 'bgm/Alexys-Loginska.mp3',
+    bgm_karinka: 'bgm/Tetris-NES-Karinka.mp3',
     
-    // [추가됨] 공격 보낼 때 나는 소리 (슈웅~)
-    swoosh: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3' 
+    // 효과음 (기존 유지)
+    start: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
+    drop: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+    clear: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3',
+    attack: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
+    count: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+    win: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
+    lose: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+    swoosh: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'
 };
 
 const buffers = {};
@@ -34,26 +39,35 @@ export async function initAudio() {
     gainNode.gain.value = volume;
     gainNode.connect(audioCtx.destination);
 
-    // 사운드 미리 로딩
+    // 사운드 파일 로딩
     for(const [key, url] of Object.entries(SOUNDS)) {
         try {
             const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const buf = await res.arrayBuffer();
             buffers[key] = await audioCtx.decodeAudioData(buf);
-        } catch(e) { console.log('Sound load fail:', key); }
+            console.log(`Sound loaded: ${key}`);
+        } catch(e) { 
+            console.warn(`Sound load fail (${key} at ${url}):`, e); 
+        }
     }
 }
 
 export function playBGM(type) {
     if(isMuted || !audioCtx) return;
     stopBGM();
+    
+    // index.html의 value와 매칭 (예: troika -> bgm_troika)
     const key = `bgm_${type}`;
+    
     if(buffers[key]) {
         bgmSource = audioCtx.createBufferSource();
         bgmSource.buffer = buffers[key];
         bgmSource.loop = true;
         bgmSource.connect(gainNode);
         bgmSource.start(0);
+    } else {
+        console.warn(`BGM Key not found: ${key}`);
     }
 }
 
@@ -90,6 +104,7 @@ export function toggleAudioMute(btn) {
 }
 
 export function setAudioVolume(val) {
-    volume = val;
+    // 0~100 사이 값을 0.0~1.0으로 변환
+    volume = val / 100;
     if(gainNode && !isMuted) gainNode.gain.value = volume;
 }

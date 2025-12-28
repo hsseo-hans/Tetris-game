@@ -135,9 +135,10 @@ function setupEventListeners() {
         container.onclick = (e) => e.stopPropagation(); 
         icon.onclick = (e) => { e.stopPropagation(); handleHeartIconClick(e); };
         text.onclick = (e) => { e.stopPropagation(); handleHeartTextClick(text, input); };
-        input.onblur = () => resetHeartInput(text, input);
+        
+        input.onblur = () => processHeartInput(text, input);
         input.onkeydown = (e) => { 
-            if (e.key === 'Enter') handleHeartInputKey(e, text, input);
+            if (e.key === 'Enter') processHeartInput(text, input);
             if (e.key === 'Escape') resetHeartInput(text, input);
         };
     });
@@ -158,6 +159,20 @@ function resetHeartInput(textEl, inputEl) {
     inputEl.value = "";
     inputEl.classList.add('hidden');
     textEl.classList.remove('hidden');
+}
+
+async function processHeartInput(textEl, inputEl) {
+    const msg = inputEl.value.trim();
+    if (!msg) {
+        resetHeartInput(textEl, inputEl);
+        return;
+    }
+
+    const nick = localStorage.getItem('tetris_nick') || "Anonymous";
+    await saveHeartComment(nick, msg);
+    
+    resetHeartInput(textEl, inputEl);
+    showToast("❤️ 감사합니다!");
 }
 
 async function handleHeartIconClick(e) {
@@ -290,17 +305,8 @@ function handleHeartTextClick(textEl, inputEl) {
 }
 
 async function handleHeartInputKey(e, textEl, inputEl) {
-    const msg = e.target.value.trim();
-    if (!msg) {
-        resetHeartInput(textEl, inputEl);
-        return;
-    }
-
-    const nick = localStorage.getItem('tetris_nick') || "Anonymous";
-    await saveHeartComment(nick, msg);
-    
-    resetHeartInput(textEl, inputEl);
-    showToast("❤️ 감사합니다!");
+    // Wrapper for compatibility, though setupEventListeners calls processHeartInput directly now.
+    processHeartInput(textEl, inputEl);
 }
 
 function updateSpeakerIcon(isMuted) {
@@ -403,7 +409,6 @@ function setLang(lang) {
         if(S[key]) el.placeholder = S[key];
     });
     
-    // [수정] 하트 메시지 업데이트
     document.querySelectorAll('.heart-text').forEach(el => {
         el.innerText = S.heartMsg;
     });
@@ -665,7 +670,6 @@ function animateAttack(sender, lines, score, callback) {
     const div = document.createElement('div');
     div.className = 'attack-projectile'; 
     
-    // 블럭 높이 계산
     const oneBlockHeight = srcRect.height / ROWS;
     const h = lines * oneBlockHeight;
     
@@ -674,7 +678,6 @@ function animateAttack(sender, lines, score, callback) {
     div.style.left = srcRect.left + 'px';
     div.style.top = (srcRect.bottom - h) + 'px'; 
     
-    // [추가] 블럭 안 점수 텍스트
     if (score > 0) {
         const span = document.createElement('span');
         span.className = 'score-in-block';
@@ -690,7 +693,6 @@ function animateAttack(sender, lines, score, callback) {
     ], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
     
     anim.onfinish = () => {
-        // [추가] 도착 후 점수 풍선 효과
         if (score > 0) {
             const balloon = document.createElement('div');
             balloon.className = 'score-balloon';
@@ -749,7 +751,6 @@ function playerRotate() {
     draw();
 }
 
-// [수정] 점수 계산 + 공격 애니메이션에 점수 전달
 function checkLines() {
     let lines = 0;
     outer: for(let y=ROWS-1; y>0; --y) {
@@ -767,7 +768,6 @@ function checkLines() {
         
         playSFX('clear'); updateUI();
         if(state.opponent.isAI && state.opponent.bot) {
-            // [수정] 점수 전달
             animateAttack('player', lines, scoreAdd, () => {
                 state.opponent.bot.receiveAtk(lines);
             });
@@ -776,7 +776,6 @@ function checkLines() {
 }
 
 function receiveAtkFromBot(lines) {
-    // 봇 공격은 점수 0으로 표시하지 않음 (null or 0)
     animateAttack('opponent', lines, 0, () => {
         state.stats.rec += lines; updateUI();
         for(let i=0; i<lines; i++) { state.grid.shift(); state.grid.push(genGarbage()); }
@@ -980,7 +979,6 @@ async function loadRankingData(levelNum) {
     
     let html = '';
     
-    // [수정] 랭킹 리스트 생성 로직
     if (ranks.length === 0) {
         html = '<div style="padding:20px;">No Data</div>';
     } else {
@@ -1010,7 +1008,7 @@ async function loadRankingData(levelNum) {
         isRanker = ranks.some(r => r.nickname === myNick);
     }
 
-    // [수정] 도전 메시지 표시 조건 (5명 이하이고 본인이 없을 때)
+    // [복구] 도전 메시지
     if (ranks.length <= 5 && !isRanker) {
         html += `<div class="rank-challenge">${STRINGS[state.curLang].challengeMsg}</div>`;
     }

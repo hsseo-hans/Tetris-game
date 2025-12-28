@@ -16,19 +16,17 @@ export function detectAndSetLang() {
     
     setLang(targetLang);
     
-    // 모바일 레이아웃 초기 체크 및 리스너 등록
     checkMobileLayout();
     window.addEventListener('resize', checkMobileLayout);
 }
 
-// [수정] 화면 비율에 따른 레이아웃 모드 설정 (사용자 요청 공식 적용)
+// [수정] 화면 비율에 따른 레이아웃 모드 설정 (1.5배수 적용)
 export function checkMobileLayout() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     
-    // 가로*2가 세로보다 커야만 두 화면을 합쳐서 보여줌 (Combined)
-    // 반대로 세로가 매우 길면(width*2 < height) 분리해서 보여줌 (Split)
-    if (width * 2 > height) {
+    // 가로*1.5가 세로보다 크면 Combined View (두 화면 표시)
+    if (width * 1.5 > height) {
         state.isCombinedView = true;
         document.body.classList.add('mobile-combined');
     } else {
@@ -56,7 +54,6 @@ export function setLang(lang) {
     document.body.className = '';
     if(state.run) document.body.classList.add('game-started');
     
-    // 레이아웃 클래스 복구
     if(state.isCombinedView) document.body.classList.add('mobile-combined');
     updateMobileView();
 
@@ -96,12 +93,8 @@ export function toggleLangMenu() { document.getElementById('lang-menu').classLis
 
 // --- 모바일 뷰 관리 ---
 export function updateMobileView() {
-    // 기존 뷰 클래스 제거
     document.body.classList.remove('mobile-view-0', 'mobile-view-1', 'mobile-view-2', 'mobile-view-3');
     
-    // 범위 제한 
-    // Combined 모드: 0(내정보) <-> 1(게임합침) <-> 2(봇정보)
-    // Split 모드: 0(내정보) <-> 1(내게임) <-> 2(봇게임) <-> 3(봇정보)
     const maxView = state.isCombinedView ? 2 : 3;
     if (state.mobileView > maxView) state.mobileView = maxView;
     
@@ -109,7 +102,6 @@ export function updateMobileView() {
     
     const titleEl = document.getElementById('game-title');
     if (state.run) {
-        // 게임 중 다른 뷰(정보창 등)로 가면 PAUSED 표시
         if (state.mobileView !== 1) {
             if(!state.isPaused) titleEl.innerText = "PAUSED";
         } else if (state.isPaused) {
@@ -402,6 +394,7 @@ function renderAdminLogs(logs) {
     listDiv.innerHTML = html;
 }
 
+// --- 하트 및 기타 ---
 export async function handleHeartIconClick(e) {
     state.heartClickCount++;
     const myNick = localStorage.getItem('tetris_nick');
@@ -472,6 +465,7 @@ export function showToast(msg) {
     setTimeout(() => { el.classList.add('hidden'); }, 3000);
 }
 
+// --- 공격 애니메이션 ---
 export function animateAttack(sender, lines, score, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
@@ -524,6 +518,7 @@ export function animateAttack(sender, lines, score, callback) {
     };
 }
 
+// Helper
 function getAiLevelNum(diffStr) {
     switch(diffStr) {
         case 'easy': return 1;

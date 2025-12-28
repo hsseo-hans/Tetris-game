@@ -180,6 +180,10 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
     /* [수정] 모바일 제목 위치 하향 조정 */
     #game-title { top: 50px; font-size: clamp(2rem, 5vw, 4rem); width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
     
+    /* [수정] 로비 카드 및 타이틀 반응형 */
+    .card { width: 90%; max-width: 500px; padding: 20px; }
+    .lobby-title { font-size: clamp(3rem, 10vw, 5.5rem); margin-bottom: 20px; }
+
     /* Split View */
     body.mobile-view-0:not(.mobile-combined) .col-main { display: none; }
     body.mobile-view-0:not(.mobile-combined) .col-side:last-child { display: none; }

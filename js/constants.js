@@ -26,6 +26,7 @@ export const STRINGS = {
         atk: "공격함",
         rec: "받음",
         restart: "다시 한판",
+        exitBtn: "🏠 게임 종료 (로비로)", // [추가]
         autoMode: "🤖 관전 모드 (Auto)",
         winMsg: "축하합니다!\nAI를 이겼습니다!",
         loseMsg: "닝겐, Ai 에게도 못이기는데,\n일이나 해!",
@@ -40,8 +41,7 @@ export const STRINGS = {
         rankedMsg: "축하합니다. {0}위에 랭크되어 있습니다.",
         guideHtml: `
             <div class="mobile-guide">
-                <div class="g-row"><div class="g-zone">맨 위 (25%)<br>탭: 전체화면</div></div>
-                <div class="g-row"><div class="g-zone">중상단 (25%)<br>탭: 일시정지</div></div>
+                <div class="g-row"><div class="g-zone">상단 영역 (50%)<br>탭: 일시정지 / 계속하기</div></div>
                 <div class="g-row">
                     <div class="g-zone">하단 (50%)<br>탭: 회전<br>스와이프 ↓: 다운<br>스와이프 ←/→: 이동</div>
                 </div>
@@ -74,6 +74,7 @@ export const STRINGS = {
         atk: "攻撃",
         rec: "受け",
         restart: "もう一度",
+        exitBtn: "🏠 ゲーム終了 (ロビーへ)",
         autoMode: "🤖 観戦モード (Auto)",
         winMsg: "おめでとう！\nAIに勝ちました！",
         loseMsg: "ニンゲン、AIにも勝てないのか？\n仕事しろ！",
@@ -88,8 +89,7 @@ export const STRINGS = {
         rankedMsg: "おめでとうございます。{0}位にランクインしています。",
         guideHtml: `
             <div class="mobile-guide">
-                <div class="g-row"><div class="g-zone">最上部 (25%)<br>全画面</div></div>
-                <div class="g-row"><div class="g-zone">中上部 (25%)<br>一時停止</div></div>
+                <div class="g-row"><div class="g-zone">上部エリア (50%)<br>タップ: 一時停止 / 再開</div></div>
                 <div class="g-row">
                     <div class="g-zone">下部 (50%)<br>タップ: 回転<br>スワイプ ↓: ダウン<br>スワイプ ←/→: 移動</div>
                 </div>
@@ -122,6 +122,7 @@ export const STRINGS = {
         atk: "Attack",
         rec: "Receive",
         restart: "Play Again",
+        exitBtn: "🏠 Exit Game (Lobby)",
         autoMode: "🤖 Watch Mode (Auto)",
         winMsg: "Congratulations!\nYou beat the AI!",
         loseMsg: "Human, can't even beat AI?\nGo back to work!",
@@ -136,8 +137,7 @@ export const STRINGS = {
         rankedMsg: "Congratulations. You are ranked #{0}.",
         guideHtml: `
             <div class="mobile-guide">
-                <div class="g-row"><div class="g-zone">Very Top (25%)<br>Tap: Fullscreen</div></div>
-                <div class="g-row"><div class="g-zone">Upper Mid (25%)<br>Tap: Pause</div></div>
+                <div class="g-row"><div class="g-zone">Top Area (50%)<br>Tap: Pause / Resume</div></div>
                 <div class="g-row">
                     <div class="g-zone">Bottom (50%)<br>Tap: Rotate<br>Swipe ↓: Drop<br>Swipe ←/→: Move</div>
                 </div>

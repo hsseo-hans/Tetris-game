@@ -14,7 +14,6 @@ const ctxOpp = canvasOpp.getContext('2d');
 const canvasNext = document.getElementById('next-canvas');
 const ctxNext = canvasNext.getContext('2d');
 
-// 터치 변수
 let touchStartX = 0;
 let touchStartY = 0;
 let touchFingerCount = 0;
@@ -29,7 +28,6 @@ window.onload = () => {
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-    // 전원 끄기/탭 전환 시만 일시정지 (스와이프는 제외)
     document.addEventListener("visibilitychange", () => {
         if (document.hidden && state.run && !state.isPaused && !state.isAutoMode) {
             togglePause();
@@ -96,11 +94,18 @@ function setupEventListeners() {
     };
     document.getElementById('file-in').onchange = UI.handleFile;
 
+    // [수정] 게임 시작 시 모바일이면 전체화면 실행
     document.getElementById('start-btn').onclick = (e) => { 
         e.stopPropagation(); 
         if (audioCtx && audioCtx.state === 'suspended') {
             audioCtx.resume();
         }
+        
+        // 모바일 환경 체크 (간단한 userAgent 체크)
+        if (/Mobi|Android/i.test(navigator.userAgent)) {
+            UI.toggleFullScreen();
+        }
+        
         startCountdown(); 
     };
     document.getElementById('lobby-rank-btn').onclick = (e) => { e.stopPropagation(); UI.openRankingModal(togglePause); };
@@ -114,6 +119,13 @@ function setupEventListeners() {
         restart(); 
     };
     document.getElementById('result-rank-btn').onclick = (e) => { e.stopPropagation(); UI.openRankingModal(togglePause); };
+
+    // [추가] 게임 종료 (로비로) 버튼 핸들러
+    document.getElementById('exit-btn').onclick = (e) => {
+        e.stopPropagation();
+        UI.exitFullScreen();
+        window.location.reload(); // 로비로 돌아가는 가장 깔끔한 방법
+    };
 
     document.querySelectorAll('.btn-diff').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setDifficulty(btn.dataset.diff); };
@@ -176,9 +188,7 @@ function setDifficulty(lvl) {
     }
 }
 
-// --- 터치 핸들러 ---
 function handleTouchStart(e) {
-    // 2손가락: 화면 전환
     touchFingerCount = e.touches.length;
     if (touchFingerCount >= 2) {
         touchStartX = e.touches[0].clientX;
@@ -189,7 +199,6 @@ function handleTouchStart(e) {
         return;
     }
 
-    // 1손가락
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         touchStartX = e.changedTouches[0].clientX;
         touchStartY = e.changedTouches[0].clientY;
@@ -197,7 +206,6 @@ function handleTouchStart(e) {
 }
 
 function handleTouchEnd(e) {
-    // 2손가락: 화면 전환
     if (touchFingerCount >= 2) {
         const touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
@@ -210,7 +218,6 @@ function handleTouchEnd(e) {
                 state.mobileView = Math.max(state.mobileView - 1, 0);
             }
             UI.updateMobileView();
-            // [수정] 스와이프 시 일시정지 로직 제거됨. 게임은 계속 흐름.
         }
         touchFingerCount = 0;
         return;
@@ -220,40 +227,46 @@ function handleTouchEnd(e) {
         return;
     }
 
-    // 1손가락 컨트롤
     const touchEndY = e.changedTouches[0].clientY;
     const height = window.innerHeight;
     
-    // 상단 25%: Fullscreen
-    if (touchEndY < height * 0.25) {
-        UI.toggleFullScreen();
-        return;
-    } 
-    // 상단 25~50%: Pause
-    else if (touchEndY < height * 0.5) {
+    // [수정] 상단 50% 영역: 무조건 일시정지/재개 (더블탭 제거됨)
+    if (touchEndY < height / 2) {
         togglePause();
         return;
     }
 
-    // 하단 (50%~): Game Control (내 화면일 때만)
+    // 하단 50% 영역: 게임 컨트롤
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         e.preventDefault(); 
 
         const touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
-        const diffY = touchEndY - touchStartY;
+        const width = window.innerWidth;
         
-        if (Math.abs(diffX) > 30 || Math.abs(diffY) > 30) {
-            if (Math.abs(diffX) > Math.abs(diffY)) {
-                if (diffX < 0) playerMove(-1); 
-                else if (diffX > 0) playerMove(1); 
-            } else {
-                if (diffY > 0) {
-                    playerHardDrop();
-                }
-            }
+        // 스와이프 감지
+        if (Math.abs(diffX) > 30) {
+            if (diffX < 0) playerMove(-1); // 왼쪽
+            else playerMove(1); // 오른쪽
         } else {
-            playerRotate();
+            // 단순 탭 (이동 없음)
+            // 하단 좌측 -> 왼쪽 이동 (옵션) 혹은 드랍?
+            // 요청사항: "하단 좌우 영역은 변경없어" -> "Bottom 50% remains split into Left/Right"
+            // 하지만 이전에 "하단 터치시 회전"으로 통일했었음.
+            // 사용자 요청 "하단 좌우 영역은 변경없어" -> 기존: "하단 터치시 회전" 유지.
+            
+            // 아! "하단 좌우절반 영역으로 변경하고... 하단 좌우 영역은 변경없어"
+            // 이전 로직: 탭하면 회전, 스와이프하면 이동/드랍.
+            // 그런데 스와이프가 아닌 '탭'일 때 좌우 구분이 필요한가? 
+            // "3. 하단좌우에서 한번 터치하면 블륵을 회전하는 것으로 기능변경." (Sequence 21)
+            // 따라서 좌우 구분 없이 탭하면 회전.
+            
+            const diffY = touchEndY - touchStartY;
+            if (diffY > 30) {
+                playerHardDrop();
+            } else {
+                playerRotate();
+            }
         }
     }
 }
@@ -375,10 +388,6 @@ function startAIGame() {
 }
 
 function startGame() {
-    if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-
     if (state.animationId) cancelAnimationFrame(state.animationId);
     
     state.run = true; state.isPaused = false;

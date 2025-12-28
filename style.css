@@ -74,7 +74,8 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
 .credits { margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 1.2rem; color: #888; line-height: 1.6; font-family: monospace; text-align: left; }
 .credits span { color: var(--accent); font-weight: bold; }
 
-#result-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 50; display: none; background-image: url('image_0.png'); background-size: contain; background-repeat: no-repeat; background-position: center; width: 700px; height: 600px; flex-direction: column; justify-content: center; align-items: center; padding-bottom: 60px; }
+/* [수정] Result Area 높이 자동, 여백 확보 */
+#result-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 50; display: none; background-image: url('image_0.png'); background-size: contain; background-repeat: no-repeat; background-position: center; width: 700px; height: auto; min-height: 600px; flex-direction: column; justify-content: center; align-items: center; padding-bottom: 60px; background-color: rgba(0,0,0,0.8); border-radius: 20px; }
 .result-text { font-size: 3.2rem; line-height: 1.2; white-space: pre-wrap; font-family: inherit; font-weight: 900; color: #00C2FF; -webkit-text-stroke: 3px #000; text-stroke: 3px #000; paint-order: stroke fill; text-shadow: 5px 5px 0px rgba(0,0,0,0.5); margin-bottom: 20px; }
 .result-text.win { color: #0DFF72; -webkit-text-stroke: 3px #000; }
 

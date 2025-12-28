@@ -20,17 +20,17 @@ export function detectAndSetLang() {
     window.addEventListener('resize', checkMobileLayout);
 }
 
-// 화면 비율 로직 (세로가 가로의 1.3배보다 크면 무조건 Split View)
+// 화면 분할 로직 (2x 비율)
 export function checkMobileLayout() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     
-    if (height > width * 1.3) {
-        state.isCombinedView = false;
-        document.body.classList.remove('mobile-combined');
-    } else {
+    if (width * 2 > height) {
         state.isCombinedView = true;
         document.body.classList.add('mobile-combined');
+    } else {
+        state.isCombinedView = false;
+        document.body.classList.remove('mobile-combined');
     }
     updateMobileView();
 }
@@ -99,18 +99,19 @@ export function updateMobileView() {
     
     document.body.classList.add(`mobile-view-${state.mobileView}`);
     
-    // [수정] 스와이프해도 일시정지가 아니면 타이틀 유지
     const titleEl = document.getElementById('game-title');
     if (state.run) {
-        if (state.isPaused) {
+        if (state.mobileView !== 1) {
+            if(!state.isPaused) titleEl.innerText = "PAUSED";
+        } else if (state.isPaused) {
             titleEl.innerText = "PAUSED";
         } else {
-            // 오토모드면 오토 타이틀, 아니면 기본 타이틀
-            titleEl.innerText = state.isAutoMode ? STRINGS[state.curLang].autoModeTitle : STRINGS[state.curLang].title;
+            titleEl.innerText = STRINGS[state.curLang].title;
         }
     }
 }
 
+// [수정] Fullscreen Helper Functions
 export function toggleFullScreen() {
     if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(e => console.log(e));
@@ -121,7 +122,12 @@ export function toggleFullScreen() {
     }
 }
 
-// --- 프로필 관련 ---
+export function exitFullScreen() {
+    if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(e => console.log(e));
+    }
+}
+
 export function handleFile(e) {
     if (e.target.files[0]) {
         const r = new FileReader();
@@ -201,7 +207,6 @@ export function updateSpeakerIcon(isMuted) {
     }
 }
 
-// --- 랭킹 모달 ---
 export function openRankingModal(pauseCallback) {
     if (state.run && !state.isPaused) {
         state.wasPausedByRank = true;
@@ -310,7 +315,6 @@ export async function loadRankingData(levelNum) {
     listDiv.innerHTML = html;
 }
 
-// --- 어드민 모달 ---
 export async function openAdminModal() {
     const overlay = document.getElementById('admin-msg-overlay');
     overlay.classList.remove('hidden');
@@ -463,7 +467,6 @@ export function showToast(msg) {
     setTimeout(() => { el.classList.add('hidden'); }, 3000);
 }
 
-// [수정] 애니메이션 로직: 숨겨진 요소(display:none) 처리 강화
 export function animateAttack(sender, lines, score, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
@@ -471,28 +474,20 @@ export function animateAttack(sender, lines, score, callback) {
     const tgtEl = document.getElementById(tgtId);
     if(!srcEl || !tgtEl) { if(callback) callback(); return; }
     
-    // 요소가 숨겨져 있으면 rect는 {0,0,0,0}이 나옴.
     let srcRect = srcEl.getBoundingClientRect();
     let tgtRect = tgtEl.getBoundingClientRect();
     
-    // 좌표 보정 로직
     let startX, startY, endX, endY;
     
-    // 1. 소스 좌표 계산
     if (srcRect.width === 0) {
-        // 소스가 숨겨져 있음 (화면 분할 상태에서 상대방)
-        // 상대방(AI)이 나에게 보낼 때, AI가 안 보이면 오른쪽 밖에서 날아오는 것으로 간주
         startX = window.innerWidth; 
-        startY = window.innerHeight / 2; // 대략 중간 높이
+        startY = window.innerHeight / 2;
     } else {
         startX = srcRect.left;
         startY = srcRect.bottom;
     }
 
-    // 2. 타겟 좌표 계산
     if (tgtRect.width === 0) {
-        // 타겟이 숨겨져 있음 (내가 AI에게 보낼 때 AI 화면이 안 보임)
-        // 오른쪽 밖으로 날려보냄
         endX = window.innerWidth + 50;
         endY = startY; 
     } else {
@@ -505,11 +500,8 @@ export function animateAttack(sender, lines, score, callback) {
     const div = document.createElement('div');
     div.className = 'attack-projectile'; 
     
-    // 높이 계산 (숨겨져 있으면 대략 600px 기준 비율로)
     const oneBlockHeight = (srcRect.height > 0) ? srcRect.height / ROWS : 30; 
     const h = lines * oneBlockHeight;
-    
-    // 보여질 너비 (숨겨져 있으면 300px)
     const w = (srcRect.width > 0) ? srcRect.width : 300;
 
     div.style.width = w + 'px';
@@ -532,7 +524,7 @@ export function animateAttack(sender, lines, score, callback) {
     ], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
     
     anim.onfinish = () => {
-        if (score > 0 && tgtRect.width > 0) { // 타겟이 보일 때만 점수 풍선 표시
+        if (score > 0 && tgtRect.width > 0) {
             const balloon = document.createElement('div');
             balloon.className = 'score-balloon';
             balloon.innerText = `+${score}`;

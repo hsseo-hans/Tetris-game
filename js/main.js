@@ -5,7 +5,7 @@ import { genGarbage, createPiece, rotate, collide, merge } from './core.js';
 import { audioCtx, initAudio, playBGM, playRandomBGM, stopBGM, playSFX, playEndSound, toggleAudioMute, setAudioVolume } from './audio.js';
 import { Bot } from './bot.js';
 import { updateFightLog, checkIfRanker } from './firebase.js';
-import * as UI from './ui.js'; // UI 관련 함수 모두 가져오기
+import * as UI from './ui.js'; 
 
 const canvasMe = document.getElementById('my-tetris');
 const ctxMe = canvasMe.getContext('2d');
@@ -20,6 +20,9 @@ window.onload = () => {
     
     document.addEventListener('click', handleGlobalClick);
     document.addEventListener('keydown', handleGlobalKey);
+    
+    // [추가] 모바일 터치 이벤트 리스너 등록 (passive: false는 preventDefault 사용을 위함)
+    document.addEventListener('touchstart', handleGlobalTouch, { passive: false });
 
     drawGrid(ctxMe, Array(20).fill(Array(10).fill(0)), BLK);
     drawGrid(ctxOpp, Array(20).fill(Array(10).fill(0)), BLK);
@@ -143,13 +146,37 @@ function setupEventListeners() {
 }
 
 function setDifficulty(lvl) {
-    UI.updateDiffUI(lvl); // State update is inside here now? No, let's keep state update explicit here.
-    // Actually ui.updateDiffUI updates state.difficulty. Let's double check.
-    // Yes, in ui.js: state.difficulty = lvl; 
-    
+    UI.updateDiffUI(lvl); 
     if(state.run && state.opponent.bot && !state.isAutoMode) {
         state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot);
     }
+}
+
+// [추가] 모바일 터치 핸들러 (좌: 다운, 우: 회전)
+function handleGlobalTouch(e) {
+    initAudio();
+
+    // UI 요소(버튼, 인풋, 모달 등) 위에서의 터치는 무시 (기본 동작 수행)
+    if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
+        return;
+    }
+
+    // 게임이 실행 중이고, 일시정지가 아니고, 오토모드가 아닐 때만 컨트롤 작동
+    if (state.run && !state.isPaused && !state.isAutoMode) {
+        e.preventDefault(); // 게임 중 터치 시 스크롤/확대 방지
+
+        const touchX = e.touches[0].clientX;
+        const screenWidth = window.innerWidth;
+
+        if (touchX < screenWidth / 2) {
+            // 화면 왼쪽: 다운
+            playerDrop();
+        } else {
+            // 화면 오른쪽: 회전
+            playerRotate();
+        }
+    }
+    // 게임 중이 아닐 때(로비 등)는 preventDefault를 하지 않아 버튼 클릭 등이 정상 작동함
 }
 
 function handleGlobalKey(e) {

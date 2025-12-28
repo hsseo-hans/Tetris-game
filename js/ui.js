@@ -20,18 +20,20 @@ export function detectAndSetLang() {
     window.addEventListener('resize', checkMobileLayout);
 }
 
-// [수정] 화면 비율 로직 개선
+// [수정] 화면 분할 로직 (사용자 요청: width * 2 > height)
 export function checkMobileLayout() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     
-    // 로직 변경: 세로(Height)가 가로(Width)의 1.3배보다 크면 무조건 Split View (하나씩 표시)
-    if (height > width * 1.3) {
-        state.isCombinedView = false;
-        document.body.classList.remove('mobile-combined');
-    } else {
+    // 가로의 2배가 세로보다 커야 Combined View (두 화면 표시)
+    // 일반적인 세로 모드 폰(1:2 비율 등)은 1.5배나 2배나 분할 조건에 해당하지만
+    // 2배로 설정하면 가로가 꽤 넓어야만 합쳐지므로 분할 뷰가 더 자주 나옴.
+    if (width * 2 > height) {
         state.isCombinedView = true;
         document.body.classList.add('mobile-combined');
+    } else {
+        state.isCombinedView = false;
+        document.body.classList.remove('mobile-combined');
     }
     updateMobileView();
 }

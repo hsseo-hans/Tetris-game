@@ -82,13 +82,13 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
 #top-left-rank-btn:hover { opacity: 1; transform: scale(1.1); }
 #top-left-rank-btn svg { width: 100%; height: 100%; stroke-width: 2; filter: drop-shadow(0 0 5px rgba(255,215,0,0.5)); }
 
-#audio-ctrl { position: fixed; bottom: 25px; left: 50px; display: flex; align-items: center; gap: 15px; z-index: 90; }
+#audio-ctrl { position: fixed; bottom: 25px; left: 50px; display: flex; align-items: center; gap: 15px; z-index: 900; }
 #mute-btn { background: transparent; border: none; color: #fff; width: 30px; height: 30px; padding: 0; cursor: pointer; opacity: 0.7; transition: 0.3s; }
 #mute-btn:hover { opacity: 1; }
 #speaker-icon { width: 100%; height: 100%; }
 #bgm-select { width: 150px; padding: 5px; font-size: 0.8rem; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3); }
 
-#lang-ctrl { position: fixed; bottom: 25px; right: 50px; z-index: 150; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+#lang-ctrl { position: fixed; bottom: 25px; right: 50px; z-index: 900; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 #lang-btn { background: transparent; border: none; color: #fff; width: 30px; height: 30px; padding: 0; cursor: pointer; opacity: 0.7; transition: 0.3s; }
 #lang-menu { background: rgba(30, 30, 46, 0.95); border: 1px solid #555; border-radius: 10px; padding: 10px; display: none; flex-direction: column; gap: 5px; min-width: 120px; width: max-content; box-shadow: 0 5px 15px rgba(0,0,0,0.8); position: absolute; bottom: 40px; right: 0; }
 #lang-menu.show { display: flex; }
@@ -180,46 +180,52 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
     /* [수정] 모바일 제목 위치 하향 조정 */
     #game-title { top: 80px; font-size: clamp(2rem, 5vw, 4rem); width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
     
-    /* [수정] 오디오/언어 컨트롤 숨김 제거 (항상 표시) */
-    /* 기존의 display: none 규칙 삭제됨 */
+    /* 오디오/언어 컨트롤 항상 표시 */
+    #audio-ctrl, #lang-ctrl { display: flex !important; z-index: 900; }
 
     .card { width: 90%; max-width: 500px; padding: 20px; }
     .lobby-title { font-size: clamp(3rem, 10vw, 5.5rem); margin-bottom: 20px; }
 
-    /* Split View */
+    /* [수정] 중앙 정렬 Flex 추가 */
+    
+    /* Split View (View 0~3 명확히 분리) */
+    /* View 0 (Info) */
     body.mobile-view-0:not(.mobile-combined) .col-main { display: none; }
-    body.mobile-view-0:not(.mobile-combined) .col-side:last-child { display: none; }
-    body.mobile-view-0:not(.mobile-combined) .col-side:first-child { display: flex; opacity: 1; }
+    body.mobile-view-0:not(.mobile-combined) .col-side#side-right { display: none; }
+    body.mobile-view-0:not(.mobile-combined) .col-side#side-left { display: flex; opacity: 1; align-items: center; justify-content: center; }
 
+    /* View 1 (My Game) */
     body.mobile-view-1:not(.mobile-combined) .col-side { display: none; }
-    body.mobile-view-1:not(.mobile-combined) .col-main { display: flex; justify-content: center; }
-    body.mobile-view-1:not(.mobile-combined) .game-wrapper:last-child { display: none; } 
+    body.mobile-view-1:not(.mobile-combined) .col-main { display: flex; justify-content: center; align-items: center; }
+    body.mobile-view-1:not(.mobile-combined) #game-wrap-opp { display: none; } 
     body.mobile-view-1:not(.mobile-combined) .vs-badge { display: none; }
-    body.mobile-view-1:not(.mobile-combined) .game-wrapper:first-child { display: flex; opacity: 1; }
+    body.mobile-view-1:not(.mobile-combined) #game-wrap-me { display: flex; opacity: 1; }
 
+    /* View 2 (Bot Game) */
     body.mobile-view-2:not(.mobile-combined) .col-side { display: none; }
-    body.mobile-view-2:not(.mobile-combined) .col-main { display: flex; justify-content: center; }
-    body.mobile-view-2:not(.mobile-combined) .game-wrapper:first-child { display: none; } 
+    body.mobile-view-2:not(.mobile-combined) .col-main { display: flex; justify-content: center; align-items: center; }
+    body.mobile-view-2:not(.mobile-combined) #game-wrap-me { display: none; } 
     body.mobile-view-2:not(.mobile-combined) .vs-badge { display: none; }
-    body.mobile-view-2:not(.mobile-combined) .game-wrapper:last-child { display: flex; opacity: 1; }
+    body.mobile-view-2:not(.mobile-combined) #game-wrap-opp { display: flex; opacity: 1; }
 
+    /* View 3 (Bot Info) */
     body.mobile-view-3:not(.mobile-combined) .col-main { display: none; }
-    body.mobile-view-3:not(.mobile-combined) .col-side:first-child { display: none; }
-    body.mobile-view-3:not(.mobile-combined) .col-side:last-child { display: flex; opacity: 1; }
+    body.mobile-view-3:not(.mobile-combined) .col-side#side-left { display: none; }
+    body.mobile-view-3:not(.mobile-combined) .col-side#side-right { display: flex; opacity: 1; align-items: center; justify-content: center; }
 
     /* Combined View */
     body.mobile-combined.mobile-view-0 .col-main { display: none; }
     body.mobile-combined.mobile-view-0 .col-side:last-child { display: none; }
-    body.mobile-combined.mobile-view-0 .col-side:first-child { display: flex; opacity: 1; }
+    body.mobile-combined.mobile-view-0 .col-side:first-child { display: flex; opacity: 1; align-items: center; justify-content: center; }
 
     body.mobile-combined.mobile-view-1 .col-side { display: none; }
-    body.mobile-combined.mobile-view-1 .col-main { display: flex; justify-content: center; gap: 20px; }
+    body.mobile-combined.mobile-view-1 .col-main { display: flex; justify-content: center; gap: 20px; align-items: center; }
     body.mobile-combined.mobile-view-1 .game-wrapper { display: flex !important; transform: scale(0.9); }
     body.mobile-combined.mobile-view-1 .vs-badge { display: block; font-size: 2rem; }
 
     body.mobile-combined.mobile-view-2 .col-main { display: none; }
     body.mobile-combined.mobile-view-2 .col-side:first-child { display: none; }
-    body.mobile-combined.mobile-view-2 .col-side:last-child { display: flex; opacity: 1; }
+    body.mobile-combined.mobile-view-2 .col-side:last-child { display: flex; opacity: 1; align-items: center; justify-content: center; }
 
     canvas.game-canvas { width: 300px; height: 600px; margin-top: auto; margin-bottom: auto; }
 }

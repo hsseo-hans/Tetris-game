@@ -96,11 +96,27 @@ function setupEventListeners() {
     };
     document.getElementById('file-in').onchange = UI.handleFile;
 
-    document.getElementById('start-btn').onclick = (e) => { e.stopPropagation(); startCountdown(); };
+    document.getElementById('start-btn').onclick = (e) => { 
+        e.stopPropagation(); 
+        
+        // [수정] 게임 시작 버튼 클릭 시 오디오 컨텍스트 강제 활성화 (AutoPlay 정책 대응)
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        
+        startCountdown(); 
+    };
     document.getElementById('lobby-rank-btn').onclick = (e) => { e.stopPropagation(); UI.openRankingModal(togglePause); };
 
     document.getElementById('quit-btn').onclick = (e) => { e.stopPropagation(); quitGame(); };
-    document.getElementById('restart-btn').onclick = (e) => { e.stopPropagation(); restart(); };
+    document.getElementById('restart-btn').onclick = (e) => { 
+        e.stopPropagation();
+        // 재시작 시에도 오디오 체크
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        } 
+        restart(); 
+    };
     document.getElementById('result-rank-btn').onclick = (e) => { e.stopPropagation(); UI.openRankingModal(togglePause); };
 
     document.querySelectorAll('.btn-diff').forEach(btn => {
@@ -199,7 +215,6 @@ function handleTouchEnd(e) {
                 state.mobileView = Math.max(state.mobileView - 1, 0);
             }
             UI.updateMobileView();
-            // [수정] 스와이프 시 자동 일시정지/재개 로직 제거 (요청사항 반영)
         }
         touchFingerCount = 0;
         return;
@@ -213,7 +228,7 @@ function handleTouchEnd(e) {
     const touchEndY = e.changedTouches[0].clientY;
     const height = window.innerHeight;
     
-    // [수정] 상단 영역 4분할 로직 (더블탭 제거)
+    // [수정] 상단 영역 4분할 로직 (타이머 제거, 즉시 실행)
     // 0 ~ 25%: Fullscreen
     if (touchEndY < height * 0.25) {
         UI.toggleFullScreen();
@@ -221,7 +236,7 @@ function handleTouchEnd(e) {
     } 
     // 25% ~ 50%: Pause
     else if (touchEndY < height * 0.5) {
-        // [중요] 모든 뷰에서 상단2 영역 터치 시 일시정지 동작 (요청사항)
+        // 모든 뷰에서 상단2 영역 터치 시 일시정지 동작
         togglePause();
         return;
     }
@@ -366,13 +381,6 @@ function startAIGame() {
 }
 
 function startGame() {
-    // [추가] 오디오 컨텍스트가 suspended 상태라면 깨워서 BGM 재생 준비
-    if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume().then(() => {
-            console.log("AudioContext resumed on game start");
-        });
-    }
-
     if (state.animationId) cancelAnimationFrame(state.animationId);
     
     state.run = true; state.isPaused = false;

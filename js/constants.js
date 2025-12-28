@@ -35,8 +35,10 @@ export const STRINGS = {
         toastSaved: "저장되었습니다!",
         autoOverlay: "게임을 시작하려면\n아무 키나 누르거나 클릭하세요",
         challengeMsg: "닝겐, 지금 초고수에 도전해 봐! 너의 이름을 알려!",
-        // [추가] 하트 메시지
         heartMsg: "응원의 메세지를 남겨주세요. 하트도 클릭 부탁!",
+        // [추가] 결과창 랭킹 버튼 및 순위 축하 메시지
+        resultRankBtn: "🏆 랭킹 보드 확인",
+        rankedMsg: "축하합니다. {0}위에 랭크되어 있습니다.",
         credits: {
             pdLabel: "게임 기획 및 PD", pdName: "서형수",
             devLabel: "게임 개발", devName: "제미나이 프로",
@@ -72,8 +74,10 @@ export const STRINGS = {
         toastSaved: "保存しました！",
         autoOverlay: "ゲームを始めるには\nキーを押すかクリックしてください",
         challengeMsg: "人間よ、今すぐ超上級に挑め！その名を轟かせろ！",
-        // [추가] 하트 메시지
         heartMsg: "応援メッセージを残してください。ハートもクリック！",
+        // [추가]
+        resultRankBtn: "🏆 ランキング確認",
+        rankedMsg: "おめでとうございます。{0}位にランクインしています。",
         credits: {
             pdLabel: "企画 & PD", pdName: "ソ·ヒョンス",
             devLabel: "開発", devName: "Gemini Pro",
@@ -109,8 +113,10 @@ export const STRINGS = {
         toastSaved: "Saved successfully!",
         autoOverlay: "Press any key or click\nto start game",
         challengeMsg: "Human! Challenge Super Hard now! Make your name known!",
-        // [추가] 하트 메시지
         heartMsg: "Leave a support message. Click the heart too!",
+        // [추가]
+        resultRankBtn: "🏆 View Ranking",
+        rankedMsg: "Congratulations. You are ranked #{0}.",
         credits: {
             pdLabel: "Planner & PD", pdName: "Hyungsu, Seo(Hans)",
             devLabel: "Developer", devName: "Gemini Pro",

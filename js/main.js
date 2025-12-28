@@ -102,6 +102,10 @@ function setupEventListeners() {
 
     document.getElementById('quit-btn').onclick = (e) => { e.stopPropagation(); quitGame(); };
     document.getElementById('restart-btn').onclick = (e) => { e.stopPropagation(); restart(); };
+    
+    // [추가] 결과창 랭킹 버튼
+    document.getElementById('result-rank-btn').onclick = (e) => { e.stopPropagation(); openRankingModal(); };
+
     document.querySelectorAll('.btn-diff').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setDifficulty(btn.dataset.diff); };
     });
@@ -305,7 +309,6 @@ function handleHeartTextClick(textEl, inputEl) {
 }
 
 async function handleHeartInputKey(e, textEl, inputEl) {
-    // Wrapper for compatibility, though setupEventListeners calls processHeartInput directly now.
     processHeartInput(textEl, inputEl);
 }
 
@@ -1002,14 +1005,19 @@ async function loadRankingData(levelNum) {
         });
     }
 
+    // [수정] 내 닉네임이 리스트에 있으면 축하 메시지, 없으면 도전 메시지
     const myNick = localStorage.getItem('tetris_nick') || "";
-    let isRanker = false;
-    if(myNick) {
-        isRanker = ranks.some(r => r.nickname === myNick);
+    let myRankIdx = -1;
+    if(myNick && ranks.length > 0) {
+        myRankIdx = ranks.findIndex(r => r.nickname === myNick);
     }
 
-    // [복구] 도전 메시지
-    if (ranks.length <= 5 && !isRanker) {
+    if (myRankIdx !== -1) {
+        // 랭커에 있다면: 축하 메시지 (순위 포함)
+        const msg = STRINGS[state.curLang].rankedMsg.replace('{0}', myRankIdx + 1);
+        html += `<div class="rank-challenge" style="border-color:#0DFF72; color:#0DFF72;">${msg}</div>`;
+    } else {
+        // 랭커에 없다면: 도전 메시지 (무조건 표시)
         html += `<div class="rank-challenge">${STRINGS[state.curLang].challengeMsg}</div>`;
     }
 

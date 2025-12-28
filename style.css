@@ -115,15 +115,7 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
 .rank-cmt { flex: 3.5; font-size: 1rem; color: #aaa; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: relative; cursor: pointer;}
 .rank-country img { vertical-align: middle; width: 24px; height: 18px; border-radius: 2px; box-shadow: 0 0 5px rgba(0,0,0,0.5); margin-top: -3px; }
 
-/* 랭킹 코멘트 툴팁 */
-.rank-cmt:hover::after {
-    content: attr(data-full);
-    position: absolute; bottom: 100%; right: 0;
-    background: rgba(0,0,0,0.9); border: 1px solid #555;
-    padding: 5px 10px; border-radius: 5px; color: #fff;
-    white-space: normal; width: max-content; max-width: 300px;
-    z-index: 10; pointer-events: none;
-}
+.rank-cmt:hover::after { content: attr(data-full); position: absolute; bottom: 100%; right: 0; background: rgba(0,0,0,0.9); border: 1px solid #555; padding: 5px 10px; border-radius: 5px; color: #fff; white-space: normal; width: max-content; max-width: 300px; z-index: 10; pointer-events: none; }
 
 #ranking-list { max-height: calc(70vh - 180px); height: 100%; overflow-y: auto; margin-bottom: 20px; }
 #ranking-list::-webkit-scrollbar { width: 8px; }
@@ -143,13 +135,12 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
 #count-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; display: none; }
 #count-text { font-size: 15rem; color: #fff; text-shadow: 0 0 50px var(--accent); font-family: inherit; }
 
-/* Mobile Guide Style */
+/* Mobile Guide */
 .mobile-guide { margin-top: 20px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px; font-size: 0.9rem; font-family: sans-serif; display: none; }
 .g-row { display: flex; gap: 10px; margin-bottom: 5px; }
 .g-zone { flex: 1; border: 1px dashed rgba(255,255,255,0.3); padding: 10px; text-align: center; background: rgba(255,255,255,0.05); }
 .g-swipe-hint { text-align: center; margin-top: 5px; color: #FFD700; font-weight: bold; }
 
-/* Score & Balloon */
 .score-in-block { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-weight: 900; font-size: 1.5rem; text-shadow: 2px 2px 0 #000, 0 0 10px #fff; white-space: nowrap; pointer-events: none; }
 .score-balloon { position: fixed; color: #FFD700; font-weight: 900; font-size: 2.5rem; text-shadow: 2px 2px 0 #000, 0 0 15px #FFD700; pointer-events: none; z-index: 10001; font-family: var(--readable-font); animation: balloon-up 1.5s forwards ease-out; }
 @keyframes balloon-up { 0% { transform: translateY(0) scale(1); opacity: 1; } 50% { transform: translateY(-50px) scale(1.2); opacity: 1; } 100% { transform: translateY(-120px) scale(1.5); opacity: 0; } }
@@ -179,43 +170,55 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
 /* 4K */
 @media (min-width: 2560px) { :root { --canvas-height: 1088px; --canvas-width: 544px; } body { padding-top: 0; } #app-container { max-width: 2200px; height: 80vh; gap: 60px; margin-top: 5vh; } .col-side { height: var(--canvas-height); min-width: 400px; gap: 40px; } .col-main { gap: 120px; flex: 5; } #game-title { top: 5vh; font-size: 6rem; } .panel { padding: 30px; width: 100%; zoom: 1.2; gap: 20px; } .vs-badge { font-size: 5rem; } .lobby-title { font-size: 7rem; } .card { zoom: 1.5; } }
 
-/* [추가] 모바일 전용 스타일 */
+/* Mobile Only */
 @media (max-width: 1024px) {
-    /* 모바일에서는 가이드 표시 */
     .mobile-guide { display: block; }
     
-    /* 레이아웃 초기화 */
-    #app-container { gap: 0; margin-top: 0; height: 90vh; width: 100%; align-items: center; justify-content: center; }
-    .col-side, .col-main { flex: unset; width: 100%; height: 100%; justify-content: flex-start; padding-top: 20px; }
+    #app-container { gap: 0; margin-top: 0; height: 90vh; width: 100%; align-items: center; justify-content: center; transform-origin: top; }
+    .col-side, .col-main { flex: unset; width: 100%; height: 100%; justify-content: flex-start; padding-top: 10px; }
     
-    /* 뷰 전환 로직 (hide/show) */
-    body.mobile-view-0 .col-main { display: none; }
-    body.mobile-view-0 .col-side:last-child { display: none; }
-    body.mobile-view-0 .col-side:first-child { display: flex; opacity: 1; }
+    /* 뷰 전환 로직: Split View (세로모드) */
+    body.mobile-view-0:not(.mobile-combined) .col-main { display: none; }
+    body.mobile-view-0:not(.mobile-combined) .col-side:last-child { display: none; }
+    body.mobile-view-0:not(.mobile-combined) .col-side:first-child { display: flex; opacity: 1; }
 
-    body.mobile-view-1 .col-side { display: none; }
-    body.mobile-view-1 .col-main { display: flex; justify-content: center; }
-    body.mobile-view-1 .game-wrapper:last-child { display: none; } /* Opp hidden */
-    body.mobile-view-1 .vs-badge { display: none; }
-    body.mobile-view-1 .game-wrapper:first-child { display: flex; opacity: 1; }
+    body.mobile-view-1:not(.mobile-combined) .col-side { display: none; }
+    body.mobile-view-1:not(.mobile-combined) .col-main { display: flex; justify-content: center; }
+    body.mobile-view-1:not(.mobile-combined) .game-wrapper:last-child { display: none; } 
+    body.mobile-view-1:not(.mobile-combined) .vs-badge { display: none; }
+    body.mobile-view-1:not(.mobile-combined) .game-wrapper:first-child { display: flex; opacity: 1; }
 
-    body.mobile-view-2 .col-side { display: none; }
-    body.mobile-view-2 .col-main { display: flex; justify-content: center; }
-    body.mobile-view-2 .game-wrapper:first-child { display: none; } /* Me hidden */
-    body.mobile-view-2 .vs-badge { display: none; }
-    body.mobile-view-2 .game-wrapper:last-child { display: flex; opacity: 1; }
+    body.mobile-view-2:not(.mobile-combined) .col-side { display: none; }
+    body.mobile-view-2:not(.mobile-combined) .col-main { display: flex; justify-content: center; }
+    body.mobile-view-2:not(.mobile-combined) .game-wrapper:first-child { display: none; } 
+    body.mobile-view-2:not(.mobile-combined) .vs-badge { display: none; }
+    body.mobile-view-2:not(.mobile-combined) .game-wrapper:last-child { display: flex; opacity: 1; }
 
-    body.mobile-view-3 .col-main { display: none; }
-    body.mobile-view-3 .col-side:first-child { display: none; }
-    body.mobile-view-3 .col-side:last-child { display: flex; opacity: 1; }
+    body.mobile-view-3:not(.mobile-combined) .col-main { display: none; }
+    body.mobile-view-3:not(.mobile-combined) .col-side:first-child { display: none; }
+    body.mobile-view-3:not(.mobile-combined) .col-side:last-child { display: flex; opacity: 1; }
 
-    /* 타이틀 크기 조정 */
-    #game-title { font-size: 3rem; top: 10px; }
+    /* 뷰 전환 로직: Combined View (가로모드 - 넓은 화면) */
+    body.mobile-combined.mobile-view-0 .col-main { display: none; }
+    body.mobile-combined.mobile-view-0 .col-side:last-child { display: none; }
+    body.mobile-combined.mobile-view-0 .col-side:first-child { display: flex; opacity: 1; }
+
+    body.mobile-combined.mobile-view-1 .col-side { display: none; }
+    body.mobile-combined.mobile-view-1 .col-main { display: flex; justify-content: center; gap: 20px; }
+    body.mobile-combined.mobile-view-1 .game-wrapper { display: flex !important; transform: scale(0.9); }
+    body.mobile-combined.mobile-view-1 .vs-badge { display: block; font-size: 2rem; }
+
+    body.mobile-combined.mobile-view-2 .col-main { display: none; }
+    body.mobile-combined.mobile-view-2 .col-side:first-child { display: none; }
+    body.mobile-combined.mobile-view-2 .col-side:last-child { display: flex; opacity: 1; }
+
+    /* 타이틀 크기 자동조절 */
+    #game-title { font-size: clamp(2rem, 5vw, 4rem); top: 10px; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
     
-    /* 캔버스 크기 */
-    canvas.game-canvas { width: 300px; height: 600px; }
+    /* 캔버스 마진 조정 (제목과 하단 사이 중앙 정렬) */
+    canvas.game-canvas { width: 300px; height: 600px; margin-top: auto; margin-bottom: auto; }
     
-    /* 컨트롤러 숨김 (게임 시작 후) */
+    /* 게임 중 컨트롤러 숨김 */
     body.game-started #audio-ctrl { display: none; }
     body.game-started #lang-ctrl { display: none; }
 }

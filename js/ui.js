@@ -7,7 +7,7 @@ import {
 } from './firebase.js';
 import { playSFX } from './audio.js';
 
-// --- 언어 및 초기화 ---
+// --- 화면 및 언어 초기화 ---
 export function detectAndSetLang() {
     const browserLang = navigator.language || navigator.userLanguage; 
     let targetLang = 'en';
@@ -15,6 +15,26 @@ export function detectAndSetLang() {
     else if(browserLang.includes('ja')) targetLang = 'ja';
     
     setLang(targetLang);
+    
+    // 모바일 레이아웃 초기 체크 및 리스너 등록
+    checkMobileLayout();
+    window.addEventListener('resize', checkMobileLayout);
+}
+
+// 화면 비율에 따른 레이아웃 모드 설정
+export function checkMobileLayout() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    
+    // 가로가 세로의 절반보다 크면 (즉, 두 화면을 나란히 놓을 공간이 되면) Combined View
+    if (width * 2 > height) {
+        state.isCombinedView = true;
+        document.body.classList.add('mobile-combined');
+    } else {
+        state.isCombinedView = false;
+        document.body.classList.remove('mobile-combined');
+    }
+    updateMobileView();
 }
 
 export function setLang(lang) {
@@ -35,7 +55,8 @@ export function setLang(lang) {
     document.body.className = '';
     if(state.run) document.body.classList.add('game-started');
     
-    // 모바일 뷰 클래스 초기화
+    // 레이아웃 클래스 복구
+    if(state.isCombinedView) document.body.classList.add('mobile-combined');
     updateMobileView();
 
     if(lang === 'ko') document.body.classList.add('font-ko');
@@ -44,6 +65,7 @@ export function setLang(lang) {
     
     updateCreditsUI(lang);
     
+    // 닉네임, 타이틀 설정
     const nickIn = document.getElementById('nick-in');
     if(!nickIn.value) {
         document.getElementById('my-nick-side').innerText = S.me;
@@ -54,7 +76,8 @@ export function setLang(lang) {
     if (state.isAutoMode) {
         titleEl.innerText = S.autoModeTitle;
     } else if (!state.isPaused) {
-        titleEl.innerText = S.title;
+        // [수정] 모바일이라고 강제로 "Tetris"로 바꾸지 않고 원래 제목 유지
+        titleEl.innerText = S.title; 
     }
 
     document.querySelectorAll('.lang-opt').forEach(btn => btn.classList.remove('active'));
@@ -74,19 +97,23 @@ export function toggleLangMenu() { document.getElementById('lang-menu').classLis
 
 // --- 모바일 뷰 관리 ---
 export function updateMobileView() {
-    // 0:Info, 1:Me, 2:Bot, 3:BotInfo
+    // 기존 뷰 클래스 제거
     document.body.classList.remove('mobile-view-0', 'mobile-view-1', 'mobile-view-2', 'mobile-view-3');
-    document.body.classList.add(`mobile-view-${state.mobileView}`);
     
-    const titleEl = document.getElementById('game-title');
-    if (state.run) {
-        // 게임 중 다른 뷰로 가면 PAUSED
-        if (state.mobileView !== 1) {
-            titleEl.innerText = "PAUSED";
-        } else if (state.isPaused) {
-            titleEl.innerText = "PAUSED";
-        } else {
-            titleEl.innerText = "Tetris";
+    // 범위 제한 (Combined 모드면 0~2, Split 모드면 0~3)
+    const maxView = state.isCombinedView ? 2 : 3;
+    if (state.mobileView > maxView) state.mobileView = maxView;
+    
+    document.body.classList.add(`mobile-view-${state.mobileView}`);
+}
+
+// [추가] 전체화면 토글
+export function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(e => console.log(e));
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
         }
     }
 }
@@ -109,7 +136,6 @@ export function handleFile(e) {
             img.src = ev.target.result;
         };
         r.readAsDataURL(e.target.files[0]);
-        // [수정] 모바일에서 재선택 가능하도록 value 초기화
         e.target.value = '';
     }
 }
@@ -249,7 +275,6 @@ export async function loadRankingData(levelNum) {
             const flagUrl = `https://flagcdn.com/24x18/${r.country.toLowerCase()}.png`;
             const w = r.wincount || 0;
             const l = r.losecount || 0;
-            // [수정] 툴팁을 위한 data-full 속성 추가
             html += `
                 <div class="ranking-row">
                     <div class="rank-idx">${idx + 1}</div>

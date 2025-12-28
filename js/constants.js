@@ -40,12 +40,13 @@ export const STRINGS = {
         rankedMsg: "축하합니다. {0}위에 랭크되어 있습니다.",
         guideHtml: `
             <div class="mobile-guide">
-                <div class="g-row"><div class="g-zone">Left Top<br>Pause</div><div class="g-zone">Right Top<br>Pause</div></div>
                 <div class="g-row">
-                    <div class="g-zone">Left Bottom<br>Tap: Left<br>Swipe ↓: Drop<br>Swipe ←: Left</div>
-                    <div class="g-zone">Right Bottom<br>Tap: Right<br>Swipe →: Right<br>Swipe ↑: Rotate</div>
+                    <div class="g-zone">상단 영역 (L/R)<br>1탭: 일시정지<br>2탭: 전체화면</div>
                 </div>
-                <div class="g-swipe-hint">✌️ 2 Finger Swipe: Switch Screen</div>
+                <div class="g-row">
+                    <div class="g-zone">하단 영역 (공통)<br>탭: 회전<br>스와이프 ↓: 다운<br>스와이프 ←/→: 이동</div>
+                </div>
+                <div class="g-swipe-hint">✌️ 두 손가락 스와이프: 화면 전환</div>
             </div>
         `,
         credits: {
@@ -88,12 +89,13 @@ export const STRINGS = {
         rankedMsg: "おめでとうございます。{0}位にランクインしています。",
         guideHtml: `
             <div class="mobile-guide">
-                <div class="g-row"><div class="g-zone">L-Top<br>Pause</div><div class="g-zone">R-Top<br>Pause</div></div>
                 <div class="g-row">
-                    <div class="g-zone">L-Bot<br>Tap: Left<br>Swipe ↓: Drop<br>Swipe ←: Left</div>
-                    <div class="g-zone">R-Bot<br>Tap: Right<br>Swipe →: Right<br>Swipe ↑: Rotate</div>
+                    <div class="g-zone">上部エリア (左/右)<br>1タップ: 一時停止<br>2タップ: 全画面</div>
                 </div>
-                <div class="g-swipe-hint">✌️ 2 Finger Swipe: Screen Change</div>
+                <div class="g-row">
+                    <div class="g-zone">下部エリア (共通)<br>タップ: 回転<br>スワイプ ↓: ダウン<br>スワイプ ←/→: 移動</div>
+                </div>
+                <div class="g-swipe-hint">✌️ 2本指スワイプ: 画面切り替え</div>
             </div>
         `,
         credits: {
@@ -136,10 +138,11 @@ export const STRINGS = {
         rankedMsg: "Congratulations. You are ranked #{0}.",
         guideHtml: `
             <div class="mobile-guide">
-                <div class="g-row"><div class="g-zone">L-Top<br>Pause</div><div class="g-zone">R-Top<br>Pause</div></div>
                 <div class="g-row">
-                    <div class="g-zone">L-Bot<br>Tap: Left<br>Swipe ↓: Drop<br>Swipe ←: Left</div>
-                    <div class="g-zone">R-Bot<br>Tap: Right<br>Swipe →: Right<br>Swipe ↑: Rotate</div>
+                    <div class="g-zone">Top Area (L/R)<br>1 Tap: Pause<br>2 Tap: Fullscreen</div>
+                </div>
+                <div class="g-row">
+                    <div class="g-zone">Bottom Area<br>Tap: Rotate<br>Swipe ↓: Drop<br>Swipe ←/→: Move</div>
                 </div>
                 <div class="g-swipe-hint">✌️ 2 Finger Swipe: Switch Screen</div>
             </div>

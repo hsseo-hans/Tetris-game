@@ -15,6 +15,8 @@ export const state = {
     wasPausedByRank: false,
     heartClickCount: 0,
     currentSessionStats: { win: 0, lose: 0 },
-    // [추가] 모바일 화면 인덱스 (0:Info, 1:Me, 2:Bot, 3:BotInfo)
-    mobileView: 1 
+    // 모바일 뷰 인덱스 (0:Info, 1:Game1, 2:Game2, 3:AIInfo)
+    mobileView: 1,
+    // [추가] 가로가 넓어서 두 게임 화면을 합쳐서 보여줄지 여부
+    isCombinedView: false 
 };

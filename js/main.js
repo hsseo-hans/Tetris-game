@@ -3,7 +3,7 @@ import { COLS, ROWS, BLK, COLORS, DEFAULT_SVG, STRINGS } from './constants.js';
 import { genGarbage, createPiece, rotate, collide, merge } from './core.js';
 import { audioCtx, initAudio, playBGM, playRandomBGM, stopBGM, playSFX, playEndSound, toggleAudioMute, setAudioVolume } from './audio.js';
 import { Bot } from './bot.js';
-import { saveRankData, getRankingsByLevel, checkIfRanker, saveHeartComment, incrementHeartCount, getHeartMessages, getHeartCount } from './firebase.js';
+import { saveRankData, getRankingsByLevel, checkIfRanker, saveHeartComment, incrementHeartCount, getHeartMessages, getHeartCount, updateFightLog, getGameStats, getRecentGameLogs } from './firebase.js';
 
 const state = {
     grid: [], 
@@ -19,7 +19,8 @@ const state = {
     startTime: 0, duration: 120000, pauseStartTime: 0, animationId: null,
     currentBGM: 'classicA', curLang: 'en',
     wasPausedByRank: false,
-    heartClickCount: 0
+    heartClickCount: 0,
+    currentSessionStats: { win: 0, lose: 0 }
 };
 
 const canvasMe = document.getElementById('my-tetris');
@@ -40,9 +41,6 @@ window.onload = () => {
     drawGrid(ctxOpp, Array(20).fill(Array(10).fill(0)), BLK);
     
     setupEventListeners();
-
-    // 결과창 배경 클릭 이벤트 제거 (요청사항 반영)
-    // document.getElementById('result-area').onclick... 삭제됨
 
     document.getElementById('ranking-overlay').onclick = (e) => {
         if(e.target.id === 'ranking-overlay') closeRankingModal();
@@ -137,11 +135,21 @@ function setupEventListeners() {
         container.onclick = (e) => e.stopPropagation(); 
         icon.onclick = (e) => { e.stopPropagation(); handleHeartIconClick(e); };
         text.onclick = (e) => { e.stopPropagation(); handleHeartTextClick(text, input); };
-        
         input.onblur = () => resetHeartInput(text, input);
         input.onkeydown = (e) => { 
             if (e.key === 'Enter') handleHeartInputKey(e, text, input);
             if (e.key === 'Escape') resetHeartInput(text, input);
+        };
+    });
+
+    document.querySelectorAll('.admin-tab').forEach(btn => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            const targetId = e.target.dataset.target;
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            document.querySelectorAll('.admin-view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(targetId).classList.remove('hidden');
         };
     });
 }
@@ -184,17 +192,31 @@ async function openAdminModal() {
     const overlay = document.getElementById('admin-msg-overlay');
     overlay.classList.remove('hidden');
     
+    document.querySelectorAll('.admin-tab')[0].click();
+
     const countEl = document.getElementById('admin-total-hearts');
-    const listDiv = document.getElementById('admin-msg-list');
+    const msgListDiv = document.getElementById('admin-msg-list');
     
     countEl.innerText = "💖 받은 하트: 불러오는 중...";
-    listDiv.innerHTML = '<div style="padding:20px; text-align:center;">로딩중...</div>';
+    msgListDiv.innerHTML = '<div style="padding:20px; text-align:center;">로딩중...</div>';
 
     const totalHearts = await getHeartCount();
     countEl.innerText = `💖 받은 하트 총 개수: ${totalHearts.toLocaleString()}개`;
 
     const msgs = await getHeartMessages();
     renderAdminMessages(msgs);
+
+    const statsEl = document.getElementById('admin-game-stats');
+    const logListDiv = document.getElementById('admin-log-list');
+    
+    statsEl.innerText = "📊 통계 로딩중...";
+    logListDiv.innerHTML = '<div style="padding:20px; text-align:center;">로딩중...</div>';
+
+    const stats = await getGameStats();
+    statsEl.innerHTML = `오늘 게임 유저: <span style="color:#fff">${stats.todayUsers}명</span> <span style="color:#666">|</span> 누적 유저: <span style="color:#fff">${stats.totalUsers}명</span>`;
+
+    const logs = await getRecentGameLogs();
+    renderAdminLogs(logs);
 }
 
 function closeAdminModal() {
@@ -218,6 +240,32 @@ function renderAdminMessages(msgs) {
                     <span style="font-size:0.8rem">${m.dateStr}</span>
                 </div>
                 <div class="msg-body">${m.hartcomment}</div>
+            </div>
+        `;
+    });
+    listDiv.innerHTML = html;
+}
+
+function renderAdminLogs(logs) {
+    const listDiv = document.getElementById('admin-log-list');
+    if (logs.length === 0) {
+        listDiv.innerHTML = '<div style="padding:20px; text-align:center; line-height:1.5;">최근 게임 기록이 없습니다.<br><span style="font-size:0.9rem; color:#888;">(업데이트 이후 게임을 진행해야 표시됩니다)</span></div>';
+        return;
+    }
+
+    let html = '';
+    logs.forEach(l => {
+        html += `
+            <div class="msg-row" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="color:#FFD700; font-weight:bold; font-size:1.1rem;">${l.nickname}</span>
+                    <br>
+                    <span style="font-size:0.8rem; color:#aaa;">${l.time}</span>
+                </div>
+                <div style="text-align:right; font-size:0.9rem; color:#ccc;">
+                    <span style="color:#fff">Total: ${l.total}</span> <br>
+                    <span style="color:#0DFF72">W:${l.win}</span> / <span style="color:#FF0D72">L:${l.lose}</span>
+                </div>
             </div>
         `;
     });
@@ -285,7 +333,6 @@ function handleGlobalKey(e) {
 function handleGlobalClick(e) {
     initAudio(); 
     
-    // 언어 메뉴 닫기 로직
     const langMenu = document.getElementById('lang-menu');
     if (langMenu.classList.contains('show') && !e.target.closest('#lang-ctrl')) {
         langMenu.classList.remove('show');
@@ -355,6 +402,12 @@ function setLang(lang) {
         const key = el.getAttribute('data-i18n-ph');
         if(S[key]) el.placeholder = S[key];
     });
+    
+    // [수정] 하트 메시지 업데이트
+    document.querySelectorAll('.heart-text').forEach(el => {
+        el.innerText = S.heartMsg;
+    });
+
     document.body.className = '';
     if(lang === 'ko') document.body.classList.add('font-ko');
     else if(lang === 'ja') document.body.classList.add('font-ja');
@@ -597,8 +650,7 @@ function resetAutoMode() {
     startAutoMode();
 }
 
-// [수정] 반응형 공격 미사일 높이 계산
-function animateAttack(sender, lines, callback) {
+function animateAttack(sender, lines, score, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
     const srcEl = document.getElementById(srcId);
@@ -613,7 +665,7 @@ function animateAttack(sender, lines, callback) {
     const div = document.createElement('div');
     div.className = 'attack-projectile'; 
     
-    // [중요] 실제 렌더링된 한 칸 높이 계산
+    // 블럭 높이 계산
     const oneBlockHeight = srcRect.height / ROWS;
     const h = lines * oneBlockHeight;
     
@@ -622,6 +674,14 @@ function animateAttack(sender, lines, callback) {
     div.style.left = srcRect.left + 'px';
     div.style.top = (srcRect.bottom - h) + 'px'; 
     
+    // [추가] 블럭 안 점수 텍스트
+    if (score > 0) {
+        const span = document.createElement('span');
+        span.className = 'score-in-block';
+        span.innerText = `+${score}`;
+        div.appendChild(span);
+    }
+
     document.body.appendChild(div);
     
     const anim = div.animate([
@@ -629,7 +689,20 @@ function animateAttack(sender, lines, callback) {
         { left: tgtRect.left + 'px', top: (tgtRect.bottom - h) + 'px', opacity: 1, transform: 'scale(1)' }
     ], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
     
-    anim.onfinish = () => { div.remove(); if(callback) callback(); };
+    anim.onfinish = () => {
+        // [추가] 도착 후 점수 풍선 효과
+        if (score > 0) {
+            const balloon = document.createElement('div');
+            balloon.className = 'score-balloon';
+            balloon.innerText = `+${score}`;
+            balloon.style.left = (tgtRect.left + tgtRect.width / 2 - 20) + 'px';
+            balloon.style.top = (tgtRect.bottom - 50) + 'px';
+            document.body.appendChild(balloon);
+            setTimeout(() => balloon.remove(), 1500);
+        }
+        div.remove(); 
+        if(callback) callback(); 
+    };
 }
 
 function getPieceFromBag() {
@@ -675,6 +748,8 @@ function playerRotate() {
     }
     draw();
 }
+
+// [수정] 점수 계산 + 공격 애니메이션에 점수 전달
 function checkLines() {
     let lines = 0;
     outer: for(let y=ROWS-1; y>0; --y) {
@@ -684,17 +759,25 @@ function checkLines() {
         ++y; lines++;
     }
     if(lines > 0) {
-        state.player.score += lines * 100; state.stats.atk += lines;
+        const scoreTable = { 1: 100, 2: 300, 3: 500, 4: 800 };
+        const scoreAdd = scoreTable[lines] || (lines * 100);
+        
+        state.player.score += scoreAdd; 
+        state.stats.atk += lines;
+        
         playSFX('clear'); updateUI();
         if(state.opponent.isAI && state.opponent.bot) {
-            animateAttack('player', lines, () => {
+            // [수정] 점수 전달
+            animateAttack('player', lines, scoreAdd, () => {
                 state.opponent.bot.receiveAtk(lines);
             });
         }
     }
 }
+
 function receiveAtkFromBot(lines) {
-    animateAttack('opponent', lines, () => {
+    // 봇 공격은 점수 0으로 표시하지 않음 (null or 0)
+    animateAttack('opponent', lines, 0, () => {
         state.stats.rec += lines; updateUI();
         for(let i=0; i<lines; i++) { state.grid.shift(); state.grid.push(genGarbage()); }
         playSFX('attack'); draw();
@@ -762,6 +845,12 @@ async function endGame(res) {
     if(state.animationId) cancelAnimationFrame(state.animationId); 
     state.run = false; stopBGM();
     
+    const nick = localStorage.getItem('tetris_nick') || "Anonymous";
+    const lvlNum = getAiLevelNum(state.difficulty);
+    const isWin = (res === "WIN");
+    
+    state.currentSessionStats = await updateFightLog(nick, lvlNum, isWin);
+
     document.getElementById('quit-btn').classList.add('hidden');
     document.getElementById('result-area').style.display='flex';
     document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
@@ -770,15 +859,14 @@ async function endGame(res) {
     document.getElementById('rank-save-area').classList.add('hidden');
     const txt = document.getElementById('res-text');
 
-    if(res === "WIN") {
+    if(isWin) {
         txt.innerText = STRINGS[state.curLang].winMsg;
         txt.classList.add('win'); 
         fireConfetti();
         playEndSound('win'); 
         state.record.win++;
 
-        const levelNum = getAiLevelNum(state.difficulty);
-        const isTop10 = await checkIfRanker(levelNum, state.player.score);
+        const isTop10 = await checkIfRanker(lvlNum, state.player.score);
 
         if (isTop10 && state.player.score > 0) {
             document.getElementById('rank-save-area').classList.remove('hidden');
@@ -830,12 +918,15 @@ async function handleSaveRank() {
 
     const comment = document.getElementById('comment-in').value;
     const nick = localStorage.getItem('tetris_nick') || "Unknown";
+    
     const data = {
         ailevel: getAiLevelNum(state.difficulty),
         score: state.player.score,
         country: getCountryCode(state.curLang),
         nickname: nick,
-        comment: comment
+        comment: comment,
+        wincount: state.currentSessionStats.win,
+        losecount: state.currentSessionStats.lose
     };
 
     try {
@@ -889,11 +980,14 @@ async function loadRankingData(levelNum) {
     
     let html = '';
     
+    // [수정] 랭킹 리스트 생성 로직
     if (ranks.length === 0) {
         html = '<div style="padding:20px;">No Data</div>';
     } else {
         ranks.forEach((r, idx) => {
             const flagUrl = `https://flagcdn.com/24x18/${r.country.toLowerCase()}.png`;
+            const w = r.wincount || 0;
+            const l = r.losecount || 0;
             html += `
                 <div class="ranking-row">
                     <div class="rank-idx">${idx + 1}</div>
@@ -902,6 +996,8 @@ async function loadRankingData(levelNum) {
                         <img src="${flagUrl}" alt="${r.country}" title="${r.country}">
                     </div>
                     <div class="rank-score">${r.ailevelscore.toLocaleString()}</div>
+                    <div class="rank-win">${w}</div>
+                    <div class="rank-lose">${l}</div>
                     <div class="rank-cmt">${r.usercomment}</div>
                 </div>
             `;
@@ -914,6 +1010,7 @@ async function loadRankingData(levelNum) {
         isRanker = ranks.some(r => r.nickname === myNick);
     }
 
+    // [수정] 도전 메시지 표시 조건 (5명 이하이고 본인이 없을 때)
     if (ranks.length <= 5 && !isRanker) {
         html += `<div class="rank-challenge">${STRINGS[state.curLang].challengeMsg}</div>`;
     }

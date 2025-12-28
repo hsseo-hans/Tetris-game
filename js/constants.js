@@ -8,7 +8,6 @@ export const DEFAULT_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2
 export const STRINGS = {
     ko: {
         title: "Tetris: 닝겐, Ai를 이겨라!",
-        // [추가] 관전 모드 타이틀
         autoModeTitle: "🤖 AI 대전 (관전 모드)", 
         nickPH: "닉네임 입력",
         lobbyRankBtn: "🏆 랭킹 보드 확인",
@@ -36,6 +35,8 @@ export const STRINGS = {
         toastSaved: "저장되었습니다!",
         autoOverlay: "게임을 시작하려면\n아무 키나 누르거나 클릭하세요",
         challengeMsg: "닝겐, 지금 초고수에 도전해 봐! 너의 이름을 알려!",
+        // [추가] 하트 메시지
+        heartMsg: "응원의 메세지를 남겨주세요. 하트도 클릭 부탁!",
         credits: {
             pdLabel: "게임 기획 및 PD", pdName: "서형수",
             devLabel: "게임 개발", devName: "제미나이 프로",
@@ -44,7 +45,6 @@ export const STRINGS = {
     },
     ja: {
         title: "テトリス: 人間よ、AIを打ち負かせ！",
-        // [추가] 관전 모드 타이틀
         autoModeTitle: "🤖 AI対戦 (観戦モード)",
         nickPH: "ニックネーム入力",
         lobbyRankBtn: "🏆 ランキング確認",
@@ -72,6 +72,8 @@ export const STRINGS = {
         toastSaved: "保存しました！",
         autoOverlay: "ゲームを始めるには\nキーを押すかクリックしてください",
         challengeMsg: "人間よ、今すぐ超上級に挑め！その名を轟かせろ！",
+        // [추가] 하트 메시지
+        heartMsg: "応援メッセージを残してください。ハートもクリック！",
         credits: {
             pdLabel: "企画 & PD", pdName: "ソ·ヒョンス",
             devLabel: "開発", devName: "Gemini Pro",
@@ -80,7 +82,6 @@ export const STRINGS = {
     },
     en: {
         title: "Tetris: Human, Defeat the AI!",
-        // [추가] 관전 모드 타이틀
         autoModeTitle: "🤖 AI vs AI (Watch Mode)",
         nickPH: "Enter Nickname",
         lobbyRankBtn: "🏆 View Ranking",
@@ -108,6 +109,8 @@ export const STRINGS = {
         toastSaved: "Saved successfully!",
         autoOverlay: "Press any key or click\nto start game",
         challengeMsg: "Human! Challenge Super Hard now! Make your name known!",
+        // [추가] 하트 메시지
+        heartMsg: "Leave a support message. Click the heart too!",
         credits: {
             pdLabel: "Planner & PD", pdName: "Hyungsu, Seo(Hans)",
             devLabel: "Developer", devName: "Gemini Pro",

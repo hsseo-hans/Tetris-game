@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
     getFirestore, collection, addDoc, getDocs, 
-    query, orderBy, limit, serverTimestamp, where, writeBatch, doc, increment, updateDoc, setDoc, getDoc
+    query, orderBy, limit, serverTimestamp, where, writeBatch, doc, increment, updateDoc, setDoc, getDoc, getCountFromServer, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -27,6 +27,8 @@ export async function saveRankData(data) {
             country: data.country || "KR",
             nickname: data.nickname || "Anonymous",
             usercomment: data.comment || "GG",
+            wincount: Number(data.wincount) || 0,
+            losecount: Number(data.losecount) || 0,
             gamedate: serverTimestamp()
         };
 
@@ -104,7 +106,7 @@ export async function saveHeartComment(nickname, comment) {
     }
 }
 
-// 5. 하트 카운트 증가 (Return: 최신 카운트)
+// 5. 하트 카운트 증가
 export async function incrementHeartCount() {
     try {
         const countRef = doc(db, "hart_count", "total");
@@ -124,7 +126,7 @@ export async function incrementHeartCount() {
     }
 }
 
-// 6. [추가] 하트 카운트 단순 조회 (증가 X)
+// 6. 하트 카운트 조회
 export async function getHeartCount() {
     try {
         const countRef = doc(db, "hart_count", "total");
@@ -136,7 +138,7 @@ export async function getHeartCount() {
     }
 }
 
-// 7. 관리자용 응원 메시지 전체 조회
+// 7. 관리자 메시지 조회
 export async function getHeartMessages() {
     try {
         const q = query(
@@ -158,6 +160,121 @@ export async function getHeartMessages() {
         return messages;
     } catch (e) {
         console.error("Fetch Messages Error:", e);
+        return [];
+    }
+}
+
+// 8. Fight Log 업데이트 (gametime 추가)
+export async function updateFightLog(nickname, level, isWin) {
+    try {
+        const q = query(collection(db, "fight_log"), where("nickname", "==", nickname));
+        const snapshot = await getDocs(q);
+        
+        let docRef;
+        const updateData = {
+            totalgamecount: increment(1),
+            totalwincount: isWin ? increment(1) : increment(0),
+            totallosecount: isWin ? increment(0) : increment(1),
+            gametime: serverTimestamp() // [추가]
+        };
+
+        const winField = `ai${level}win`;
+        const loseField = `ai${level}lose`;
+
+        if (isWin) {
+            updateData[winField] = increment(1);
+        } else {
+            updateData[loseField] = increment(1);
+        }
+
+        if (snapshot.empty) {
+            const newDoc = {
+                nickname: nickname,
+                totalgamecount: 1,
+                totalwincount: isWin ? 1 : 0,
+                totallosecount: isWin ? 0 : 1,
+                [`ai1win`]: 0, [`ai1lose`]: 0,
+                [`ai2win`]: 0, [`ai2lose`]: 0,
+                [`ai3win`]: 0, [`ai3lose`]: 0,
+                [`ai4win`]: 0, [`ai4lose`]: 0,
+                gametime: serverTimestamp() // [추가]
+            };
+            if (isWin) newDoc[winField] = 1; 
+            else newDoc[loseField] = 1;
+
+            docRef = await addDoc(collection(db, "fight_log"), newDoc);
+        } else {
+            docRef = snapshot.docs[0].ref;
+            await updateDoc(docRef, updateData);
+        }
+        
+        const updatedSnap = await getDoc(docRef);
+        const data = updatedSnap.data();
+        
+        return {
+            win: data[winField] || 0,
+            lose: data[loseField] || 0
+        };
+
+    } catch (e) {
+        console.error("Fight Log Update Error:", e);
+        return { win: 0, lose: 0 };
+    }
+}
+
+// 9. [신규] 게임 통계 조회 (오늘 유저, 전체 유저)
+export async function getGameStats() {
+    try {
+        const fightLogRef = collection(db, "fight_log");
+        
+        const snapshotTotal = await getCountFromServer(fightLogRef);
+        const totalUsers = snapshotTotal.data().count;
+
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const todayTs = Timestamp.fromDate(today);
+        
+        const qToday = query(fightLogRef, where("gametime", ">=", todayTs));
+        const snapshotToday = await getCountFromServer(qToday);
+        const todayUsers = snapshotToday.data().count;
+
+        return {
+            totalUsers: totalUsers, 
+            todayUsers: todayUsers 
+        };
+    } catch (e) {
+        console.error("Stats Error:", e);
+        return { totalUsers: 0, todayUsers: 0 };
+    }
+}
+
+// 10. [신규] 최근 게임 로그 조회
+export async function getRecentGameLogs() {
+    try {
+        const q = query(
+            collection(db, "fight_log"),
+            orderBy("gametime", "desc"),
+            limit(50)
+        );
+        const snapshot = await getDocs(q);
+        const logs = [];
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            let timeStr = "방금 전";
+            if(d.gametime) {
+                timeStr = d.gametime.toDate().toLocaleString();
+            }
+            logs.push({
+                nickname: d.nickname || "Unknown",
+                total: d.totalgamecount || 0,
+                win: d.totalwincount || 0,
+                lose: d.totallosecount || 0,
+                time: timeStr
+            });
+        });
+        return logs;
+    } catch (e) {
+        console.error("Fetch Logs Error:", e);
         return [];
     }
 }

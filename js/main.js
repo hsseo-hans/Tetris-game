@@ -14,6 +14,13 @@ const ctxOpp = canvasOpp.getContext('2d');
 const canvasNext = document.getElementById('next-canvas');
 const ctxNext = canvasNext.getContext('2d');
 
+// 터치 동작 감지를 위한 변수들
+let touchStartX = 0;
+let touchStartY = 0;
+let lastTapTime = 0;
+let lastTapZone = null;
+let tapTimeout = null;
+
 window.onload = () => {
     UI.detectAndSetLang();
     try { UI.loadProfile(); } catch(e) { localStorage.clear(); UI.loadProfile(); }
@@ -21,8 +28,9 @@ window.onload = () => {
     document.addEventListener('click', handleGlobalClick);
     document.addEventListener('keydown', handleGlobalKey);
     
-    // [추가] 모바일 터치 이벤트 리스너 등록 (passive: false는 preventDefault 사용을 위함)
-    document.addEventListener('touchstart', handleGlobalTouch, { passive: false });
+    // 모바일 터치 이벤트 리스너 (시작과 끝을 모두 감지)
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
     drawGrid(ctxMe, Array(20).fill(Array(10).fill(0)), BLK);
     drawGrid(ctxOpp, Array(20).fill(Array(10).fill(0)), BLK);
@@ -152,31 +160,100 @@ function setDifficulty(lvl) {
     }
 }
 
-// [추가] 모바일 터치 핸들러 (좌: 다운, 우: 회전)
-function handleGlobalTouch(e) {
-    initAudio();
+// [추가] 터치 시작 핸들러
+function handleTouchStart(e) {
+    if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
+        return;
+    }
+    
+    // 게임 중일 때만 기본 동작(스크롤 등) 방지 및 좌표 기록
+    if (state.run && !state.isPaused && !state.isAutoMode) {
+        // e.preventDefault(); // 일부 브라우저에서 탭 지연 방지
+        touchStartX = e.changedTouches[0].clientX;
+        touchStartY = e.changedTouches[0].clientY;
+    }
+}
 
-    // UI 요소(버튼, 인풋, 모달 등) 위에서의 터치는 무시 (기본 동작 수행)
+// [추가] 터치 종료 핸들러 (제스처 및 탭 로직)
+function handleTouchEnd(e) {
     if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
         return;
     }
 
-    // 게임이 실행 중이고, 일시정지가 아니고, 오토모드가 아닐 때만 컨트롤 작동
-    if (state.run && !state.isPaused && !state.isAutoMode) {
-        e.preventDefault(); // 게임 중 터치 시 스크롤/확대 방지
+    if (!state.run || state.isPaused || state.isAutoMode) return;
 
-        const touchX = e.touches[0].clientX;
-        const screenWidth = window.innerWidth;
+    e.preventDefault(); // 게임 동작 외 브라우저 기능 방지
 
-        if (touchX < screenWidth / 2) {
-            // 화면 왼쪽: 다운
-            playerDrop();
-        } else {
-            // 화면 오른쪽: 회전
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    
+    // 화면 4분할 영역 판별 (Start 좌표 기준)
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const isTop = touchStartY < height / 2;
+    const isLeft = touchStartX < width / 2;
+    
+    // 현재 터치 영역 코드 (TL, TR, BL, BR)
+    let zone = isTop ? (isLeft ? 'TL' : 'TR') : (isLeft ? 'BL' : 'BR');
+
+    // 1. 스와이프 감지 (거리가 30px 이상이고 수평 움직임이 더 클 때)
+    if (Math.abs(diffX) > 30 && Math.abs(diffX) > Math.abs(diffY)) {
+        // 하단 영역에서만 방향키 동작
+        if (!isTop) {
+            if (diffX < 0 && zone === 'BL') { 
+                // 6. 하단좌측 영역에서 왼쪽 스와이프 -> 왼쪽 이동
+                playerMove(-1);
+            } else if (diffX > 0) {
+                // 7. 오른쪽 스와이프 -> 오른쪽 이동 (하단 전체 허용)
+                playerMove(1);
+            }
+        }
+        return; // 스와이프 처리 후 종료 (탭 처리 안함)
+    }
+
+    // 2. 탭(Tap) 감지 로직
+    const currentTime = new Date().getTime();
+    const tapDelay = 250; // 더블 탭 판정 시간 (ms)
+
+    // 5. 상단 영역 터치 -> 일시정지
+    if (zone === 'TL' || zone === 'TR') {
+        togglePause();
+        return;
+    }
+
+    // 하단 영역 더블 탭 / 싱글 탭 구분
+    if (zone === lastTapZone && (currentTime - lastTapTime) < tapDelay) {
+        // --- 더블 탭 발생 ---
+        clearTimeout(tapTimeout); // 대기 중인 싱글 탭 취소
+        lastTapTime = 0; // 초기화
+
+        if (zone === 'BL') {
+            // 1. 하단좌측 더블터치 -> 블럭 떨어뜨리기 (하드드롭)
+            playerHardDrop();
+        } else if (zone === 'BR') {
+            // 2. 우측하단 더블터치 -> 블럭 회전
             playerRotate();
         }
+    } else {
+        // --- 싱글 탭 (대기) ---
+        lastTapTime = currentTime;
+        lastTapZone = zone;
+
+        // 더블 탭일 수도 있으므로 일정 시간 대기 후 실행
+        tapTimeout = setTimeout(() => {
+            if (zone === 'BL') {
+                // 3. 하단좌측 한번터치 -> 왼쪽 이동
+                playerMove(-1);
+            } else if (zone === 'BR') {
+                // 4. 하단오른쪽 한번터치 -> 오른쪽 이동
+                playerMove(1);
+            }
+            lastTapTime = 0; // 타임아웃 후 초기화
+        }, tapDelay);
     }
-    // 게임 중이 아닐 때(로비 등)는 preventDefault를 하지 않아 버튼 클릭 등이 정상 작동함
 }
 
 function handleGlobalKey(e) {

@@ -18,7 +18,8 @@ const ctxNext = canvasNext.getContext('2d');
 let touchStartX = 0;
 let touchStartY = 0;
 let touchFingerCount = 0;
-let lastTopTapTime = 0; // 상단 더블탭 감지용
+let lastTopTapTime = 0;
+let pauseTimeout = null; // [추가] 일시정지 딜레이용 타이머
 
 window.onload = () => {
     UI.detectAndSetLang();
@@ -30,6 +31,13 @@ window.onload = () => {
     // 터치 이벤트
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+    // [추가] 페이지 가시성 변경 감지 (모바일 화면 꺼짐, 탭 전환 등)
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden && state.run && !state.isPaused && !state.isAutoMode) {
+            togglePause();
+        }
+    });
 
     drawGrid(ctxMe, Array(20).fill(Array(10).fill(0)), BLK);
     drawGrid(ctxOpp, Array(20).fill(Array(10).fill(0)), BLK);
@@ -159,37 +167,18 @@ function setDifficulty(lvl) {
     }
 }
 
-// --- 터치 핸들러 (수정됨) ---
+// --- 터치 핸들러 ---
 function handleTouchStart(e) {
-    // UI 요소 제외
     if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
         return;
     }
     
-    // 2손가락 이상은 화면 전환용
     touchFingerCount = e.touches.length;
     if (touchFingerCount >= 2) {
         touchStartX = e.touches[0].clientX;
         return;
     }
 
-    // 1손가락: 컨트롤 or 전체화면/일시정지
-    // 상단 터치 시 Double Tap 감지를 위해 시간 기록
-    const touchY = e.touches[0].clientY;
-    const height = window.innerHeight;
-    if (touchY < height / 2) {
-        // 상단 영역
-        const now = new Date().getTime();
-        if (now - lastTopTapTime < 300) {
-            // 더블 탭 -> 전체화면
-            UI.toggleFullScreen();
-            lastTopTapTime = 0; // 초기화
-            return;
-        }
-        lastTopTapTime = now;
-    }
-
-    // 게임 컨트롤 좌표 기록 (내 화면일 때만)
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         touchStartX = e.changedTouches[0].clientX;
         touchStartY = e.changedTouches[0].clientY;
@@ -201,21 +190,20 @@ function handleTouchEnd(e) {
         return;
     }
 
-    // 화면 전환 (2손가락 이상)
+    // 화면 전환 (2손가락)
     if (touchFingerCount >= 2) {
         const touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
         
         if (Math.abs(diffX) > 50) { 
             const maxView = state.isCombinedView ? 2 : 3;
-            if (diffX < 0) { // 오른쪽으로 이동 (View Index 증가)
+            if (diffX < 0) { 
                 state.mobileView = Math.min(state.mobileView + 1, maxView);
-            } else { // 왼쪽으로 이동 (View Index 감소)
+            } else { 
                 state.mobileView = Math.max(state.mobileView - 1, 0);
             }
             UI.updateMobileView();
             
-            // 내 화면을 벗어나면 일시정지, 돌아오면 재개
             if (state.run && !state.isAutoMode) {
                 if (state.mobileView !== 1 && !state.isPaused) {
                     togglePause(); 
@@ -228,20 +216,30 @@ function handleTouchEnd(e) {
         return;
     }
 
-    // 게임 컨트롤 (1손가락, 상단 제외)
+    // 1손가락 컨트롤
     const touchEndY = e.changedTouches[0].clientY;
     const height = window.innerHeight;
     
-    // 상단 영역(절반 위) 터치 시 일시정지 (단, 더블탭이 아닐 경우)
+    // [수정] 상단 영역 (일시정지 vs 전체화면 구분 로직)
     if (touchEndY < height / 2) {
-        // 더블탭 처리 중이라면 일시정지 무시 (handleTouchStart에서 처리됨)
-        // 여기서는 단순 탭으로 간주하고 일시정지 실행
-        // (미세한 UX 이슈: 더블탭 첫 번째 터치에도 일시정지될 수 있음. 하지만 요청사항 "상단 터치시 일시정지" 우선)
-        togglePause();
+        const now = new Date().getTime();
+        
+        if (now - lastTopTapTime < 300) {
+            // 더블 탭 -> 전체화면 (대기 중인 일시정지 취소)
+            clearTimeout(pauseTimeout);
+            UI.toggleFullScreen();
+            lastTopTapTime = 0;
+        } else {
+            // 싱글 탭 -> 300ms 대기 후 일시정지 실행
+            lastTopTapTime = now;
+            pauseTimeout = setTimeout(() => {
+                togglePause();
+            }, 300);
+        }
         return;
     }
 
-    // 하단 영역 컨트롤
+    // 하단 영역 (게임 컨트롤)
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         e.preventDefault(); 
 
@@ -249,20 +247,16 @@ function handleTouchEnd(e) {
         const diffX = touchEndX - touchStartX;
         const diffY = touchEndY - touchStartY;
         
-        // 스와이프 판정 (30px 이상)
         if (Math.abs(diffX) > 30 || Math.abs(diffY) > 30) {
-            // 수평 스와이프
             if (Math.abs(diffX) > Math.abs(diffY)) {
-                if (diffX < 0) playerMove(-1); // 왼쪽
-                else if (diffX > 0) playerMove(1); // 오른쪽
+                if (diffX < 0) playerMove(-1); 
+                else if (diffX > 0) playerMove(1); 
             } else {
-                // 수직 스와이프 (아래로) -> 드랍
                 if (diffY > 0) {
                     playerHardDrop();
                 }
             }
         } else {
-            // 탭 (단일 터치) -> 회전
             playerRotate();
         }
     }

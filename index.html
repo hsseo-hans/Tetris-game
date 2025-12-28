@@ -79,7 +79,7 @@
             </div>
         </div>
         <div id="version-tag" style="position: absolute; bottom: 15px; color: rgba(255,255,255,0.3); font-family: sans-serif; font-size: 0.8rem;">
-            Ver 2025.12.28 21:15
+            Ver 2025.12.28 21:40
         </div>
     </div>
 
@@ -124,28 +124,23 @@
     <div id="admin-msg-overlay" class="overlay hidden" style="z-index: 400; background: rgba(0,0,0,0.8);">
         <div class="card" style="width: 600px; max-width:95%; max-height: 80vh; overflow:hidden; display:flex; flex-direction:column;">
             <button id="admin-close-x" style="position:absolute; top:15px; right:15px; width:40px; height:40px; padding:0; background:transparent; border:none; color:#fff; font-size:2rem; cursor:pointer;">&times;</button>
-            
             <h2 style="font-family:'Nanum Pen Script'; font-size:3rem; margin:0 0 10px 0; color:#FF69B4; text-shadow:0 0 20px #FF69B4;">Admin Dashboard</h2>
-            
             <div class="admin-tabs" style="display:flex; gap:10px; justify-content:center; margin-bottom:15px;">
                 <button class="admin-tab active" data-target="view-hearts">💌 응원 메시지</button>
                 <button class="admin-tab" data-target="view-logs">🕹️ 게임 로그</button>
             </div>
-
             <div id="view-hearts" class="admin-view">
                 <div id="admin-total-hearts" style="font-family: var(--readable-font); font-size: 1.2rem; color: #ff0050; font-weight: 900; margin-bottom: 15px; text-shadow: 0 0 10px rgba(255,0,80,0.5);">
                     💖 받은 하트: 로딩중...
                 </div>
                 <div id="admin-msg-list" style="flex:1; overflow-y:auto; text-align:left; padding: 10px; max-height:50vh;"></div>
             </div>
-
             <div id="view-logs" class="admin-view hidden">
                 <div id="admin-game-stats" style="font-family: var(--readable-font); font-size: 1.2rem; color: #0DFF72; font-weight: 900; margin-bottom: 15px; text-shadow: 0 0 10px rgba(13,255,114,0.5);">
                     📊 통계 로딩중...
                 </div>
                 <div id="admin-log-list" style="flex:1; overflow-y:auto; text-align:left; padding: 10px; max-height:50vh;"></div>
             </div>
-
         </div>
     </div>
 
@@ -179,9 +174,7 @@
                 <div class="player-label label-me" id="game-my-label">ME</div>
                 <canvas id="my-tetris" class="game-canvas" width="320" height="640"></canvas>
             </div>
-            
             <div class="vs-badge">VS</div>
-            
             <div class="game-wrapper" id="game-wrap-opp">
                 <div class="player-label label-opp" id="game-opp-label">AI Bot</div>
                 <canvas id="opp-tetris" class="game-canvas" width="320" height="640"></canvas>

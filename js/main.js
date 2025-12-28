@@ -29,6 +29,7 @@ window.onload = () => {
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
+    // 페이지 가시성 변경 (전원 끄기/탭 전환 시 일시정지)
     document.addEventListener("visibilitychange", () => {
         if (document.hidden && state.run && !state.isPaused && !state.isAutoMode) {
             togglePause();
@@ -163,18 +164,21 @@ function setDifficulty(lvl) {
     }
 }
 
-// --- 터치 핸들러 ---
+// --- 터치 핸들러 (수정됨) ---
 function handleTouchStart(e) {
-    if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
-        return;
-    }
-    
+    // 2손가락: 화면 전환
     touchFingerCount = e.touches.length;
     if (touchFingerCount >= 2) {
         touchStartX = e.touches[0].clientX;
         return;
     }
 
+    // UI 요소 제외
+    if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
+        return;
+    }
+
+    // 1손가락 좌표 기록 (내 화면일 때만)
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         touchStartX = e.changedTouches[0].clientX;
         touchStartY = e.changedTouches[0].clientY;
@@ -182,11 +186,7 @@ function handleTouchStart(e) {
 }
 
 function handleTouchEnd(e) {
-    if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
-        return;
-    }
-
-    // 2손가락: 화면 전환
+    // 2손가락: 화면 전환 (스와이프만 함, 일시정지 없음)
     if (touchFingerCount >= 2) {
         const touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
@@ -199,16 +199,13 @@ function handleTouchEnd(e) {
                 state.mobileView = Math.max(state.mobileView - 1, 0);
             }
             UI.updateMobileView();
-            
-            if (state.run && !state.isAutoMode) {
-                if (state.mobileView !== 1 && !state.isPaused) {
-                    togglePause(); 
-                } else if (state.mobileView === 1 && state.isPaused) {
-                    togglePause(); 
-                }
-            }
+            // [수정] 스와이프 시 자동 일시정지/재개 로직 제거 (요청사항 반영)
         }
         touchFingerCount = 0;
+        return;
+    }
+
+    if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
         return;
     }
 
@@ -216,18 +213,20 @@ function handleTouchEnd(e) {
     const touchEndY = e.changedTouches[0].clientY;
     const height = window.innerHeight;
     
-    // [수정] 상단 영역 4분할 로직 적용 (0~25%: Fullscreen, 25~50%: Pause)
+    // [수정] 상단 영역 4분할 로직 (더블탭 제거)
+    // 0 ~ 25%: Fullscreen
     if (touchEndY < height * 0.25) {
-        // 최상단 25% -> 전체화면 토글
         UI.toggleFullScreen();
         return;
-    } else if (touchEndY < height * 0.5) {
-        // 중상단 25% -> 일시정지 토글
+    } 
+    // 25% ~ 50%: Pause
+    else if (touchEndY < height * 0.5) {
+        // [중요] 모든 뷰에서 상단2 영역 터치 시 일시정지 동작 (요청사항)
         togglePause();
         return;
     }
 
-    // 하단 영역 (50% ~ 100%) -> 게임 컨트롤
+    // 하단 영역 (50% ~ 100%) -> 게임 컨트롤 (내 화면일 때만)
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         e.preventDefault(); 
 
@@ -367,6 +366,13 @@ function startAIGame() {
 }
 
 function startGame() {
+    // [추가] 오디오 컨텍스트가 suspended 상태라면 깨워서 BGM 재생 준비
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+            console.log("AudioContext resumed on game start");
+        });
+    }
+
     if (state.animationId) cancelAnimationFrame(state.animationId);
     
     state.run = true; state.isPaused = false;

@@ -1,27 +1,11 @@
 // js/main.js
-import { COLS, ROWS, BLK, COLORS, DEFAULT_SVG, STRINGS } from './constants.js';
+import { COLS, ROWS, BLK, COLORS, STRINGS } from './constants.js';
+import { state } from './state.js';
 import { genGarbage, createPiece, rotate, collide, merge } from './core.js';
 import { audioCtx, initAudio, playBGM, playRandomBGM, stopBGM, playSFX, playEndSound, toggleAudioMute, setAudioVolume } from './audio.js';
 import { Bot } from './bot.js';
-import { saveRankData, getRankingsByLevel, checkIfRanker, saveHeartComment, incrementHeartCount, getHeartMessages, getHeartCount, updateFightLog, getGameStats, getRecentGameLogs } from './firebase.js';
-
-const state = {
-    grid: [], 
-    opponent: { grid:[], score:0, isAI:true, bot:null },
-    autoBotLeft: null, 
-    player: { pos:{x:0,y:0}, matrix:null, score:0 },
-    stats: { atk:0, rec:0 },
-    record: { win:0, lose:0 },
-    difficulty: 'normal',
-    bag: [], next: null, run: false, isPaused: false,
-    isAutoMode: false,
-    dropCounter: 0, dropInterval: 1000, lastTime: 0,
-    startTime: 0, duration: 120000, pauseStartTime: 0, animationId: null,
-    currentBGM: 'classicA', curLang: 'en',
-    wasPausedByRank: false,
-    heartClickCount: 0,
-    currentSessionStats: { win: 0, lose: 0 }
-};
+import { updateFightLog, checkIfRanker } from './firebase.js';
+import * as UI from './ui.js'; // UI 관련 함수 모두 가져오기
 
 const canvasMe = document.getElementById('my-tetris');
 const ctxMe = canvasMe.getContext('2d');
@@ -31,8 +15,8 @@ const canvasNext = document.getElementById('next-canvas');
 const ctxNext = canvasNext.getContext('2d');
 
 window.onload = () => {
-    detectAndSetLang();
-    try { loadProfile(); } catch(e) { localStorage.clear(); loadProfile(); }
+    UI.detectAndSetLang();
+    try { UI.loadProfile(); } catch(e) { localStorage.clear(); UI.loadProfile(); }
     
     document.addEventListener('click', handleGlobalClick);
     document.addEventListener('keydown', handleGlobalKey);
@@ -43,13 +27,13 @@ window.onload = () => {
     setupEventListeners();
 
     document.getElementById('ranking-overlay').onclick = (e) => {
-        if(e.target.id === 'ranking-overlay') closeRankingModal();
+        if(e.target.id === 'ranking-overlay') UI.closeRankingModal(togglePause);
     };
 
     document.getElementById('admin-msg-overlay').onclick = (e) => {
-        if(e.target.id === 'admin-msg-overlay') closeAdminModal();
+        if(e.target.id === 'admin-msg-overlay') UI.closeAdminModal();
     };
-    document.getElementById('admin-close-x').onclick = closeAdminModal;
+    document.getElementById('admin-close-x').onclick = UI.closeAdminModal;
 };
 
 function setupEventListeners() {
@@ -57,7 +41,7 @@ function setupEventListeners() {
         e.stopPropagation();
         const dummyBtn = { innerText: '' }; 
         const muted = toggleAudioMute(dummyBtn);
-        updateSpeakerIcon(muted);
+        UI.updateSpeakerIcon(muted);
         
         const slider = document.getElementById('vol-slider');
         if (muted) {
@@ -73,7 +57,7 @@ function setupEventListeners() {
     document.getElementById('vol-slider').oninput = (e) => {
         const val = Number(e.target.value);
         setAudioVolume(val);
-        updateSpeakerIcon(val === 0);
+        UI.updateSpeakerIcon(val === 0);
     };
 
     document.getElementById('bgm-select').onchange = (e) => {
@@ -86,33 +70,34 @@ function setupEventListeners() {
         if(el) el.onclick = (e) => e.stopPropagation();
     });
 
-    document.getElementById('lang-btn').onclick = (e) => { e.stopPropagation(); toggleLangMenu(); };
+    document.getElementById('lang-btn').onclick = (e) => { e.stopPropagation(); UI.toggleLangMenu(); };
     document.querySelectorAll('.lang-opt').forEach(btn => {
-        btn.onclick = (e) => { e.stopPropagation(); setLang(btn.dataset.lang); };
+        btn.onclick = (e) => { e.stopPropagation(); UI.setLang(btn.dataset.lang); };
     });
     
     document.getElementById('profile-trigger').onclick = (e) => {
         e.stopPropagation();
         document.getElementById('file-in').click();
     };
-    document.getElementById('file-in').onchange = handleFile;
+    document.getElementById('file-in').onchange = UI.handleFile;
 
     document.getElementById('start-btn').onclick = (e) => { e.stopPropagation(); startCountdown(); };
-    document.getElementById('lobby-rank-btn').onclick = (e) => { e.stopPropagation(); openRankingModal(); };
+    document.getElementById('lobby-rank-btn').onclick = (e) => { e.stopPropagation(); UI.openRankingModal(togglePause); };
 
     document.getElementById('quit-btn').onclick = (e) => { e.stopPropagation(); quitGame(); };
     document.getElementById('restart-btn').onclick = (e) => { e.stopPropagation(); restart(); };
-    
-    // [추가] 결과창 랭킹 버튼
-    document.getElementById('result-rank-btn').onclick = (e) => { e.stopPropagation(); openRankingModal(); };
+    document.getElementById('result-rank-btn').onclick = (e) => { e.stopPropagation(); UI.openRankingModal(togglePause); };
 
     document.querySelectorAll('.btn-diff').forEach(btn => {
         btn.onclick = (e) => { e.stopPropagation(); setDifficulty(btn.dataset.diff); };
     });
 
-    document.getElementById('top-left-rank-btn').onclick = (e) => { e.stopPropagation(); openRankingModal(); };
-    document.getElementById('rank-close-x').onclick = (e) => { e.stopPropagation(); closeRankingModal(); };
-    document.getElementById('save-rank-btn').onclick = (e) => { e.stopPropagation(); handleSaveRank(); };
+    document.getElementById('top-left-rank-btn').onclick = (e) => { e.stopPropagation(); UI.openRankingModal(togglePause); };
+    document.getElementById('rank-close-x').onclick = (e) => { e.stopPropagation(); UI.closeRankingModal(togglePause); };
+    document.getElementById('save-rank-btn').onclick = (e) => { 
+        e.stopPropagation(); 
+        UI.handleSaveRank(getAiLevelNum, getCountryCode, UI.showToast); 
+    };
     
     document.getElementById('auto-mode-btn').onclick = (e) => {
         e.stopPropagation();
@@ -124,26 +109,24 @@ function setupEventListeners() {
             e.stopPropagation();
             document.querySelectorAll('.rank-tab').forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
-            loadRankingData(Number(e.target.dataset.lvl));
+            UI.loadRankingData(Number(e.target.dataset.lvl));
         };
     });
 
     ['heart-lobby', 'heart-result'].forEach(id => {
         const container = document.getElementById(id);
         if(!container) return;
-        
         const icon = container.querySelector('.heart-icon-wrapper');
         const text = container.querySelector('.heart-text');
         const input = container.querySelector('.heart-input');
 
         container.onclick = (e) => e.stopPropagation(); 
-        icon.onclick = (e) => { e.stopPropagation(); handleHeartIconClick(e); };
-        text.onclick = (e) => { e.stopPropagation(); handleHeartTextClick(text, input); };
-        
-        input.onblur = () => processHeartInput(text, input);
+        icon.onclick = (e) => { e.stopPropagation(); UI.handleHeartIconClick(e); };
+        text.onclick = (e) => { e.stopPropagation(); UI.handleHeartTextClick(text, input); };
+        input.onblur = () => UI.processHeartInput(text, input);
         input.onkeydown = (e) => { 
-            if (e.key === 'Enter') processHeartInput(text, input);
-            if (e.key === 'Escape') resetHeartInput(text, input);
+            if (e.key === 'Enter') UI.processHeartInput(text, input);
+            if (e.key === 'Escape') UI.resetHeartInput(text, input);
         };
     });
 
@@ -159,168 +142,13 @@ function setupEventListeners() {
     });
 }
 
-function resetHeartInput(textEl, inputEl) {
-    inputEl.value = "";
-    inputEl.classList.add('hidden');
-    textEl.classList.remove('hidden');
-}
-
-async function processHeartInput(textEl, inputEl) {
-    const msg = inputEl.value.trim();
-    if (!msg) {
-        resetHeartInput(textEl, inputEl);
-        return;
-    }
-
-    const nick = localStorage.getItem('tetris_nick') || "Anonymous";
-    await saveHeartComment(nick, msg);
+function setDifficulty(lvl) {
+    UI.updateDiffUI(lvl); // State update is inside here now? No, let's keep state update explicit here.
+    // Actually ui.updateDiffUI updates state.difficulty. Let's double check.
+    // Yes, in ui.js: state.difficulty = lvl; 
     
-    resetHeartInput(textEl, inputEl);
-    showToast("❤️ 감사합니다!");
-}
-
-async function handleHeartIconClick(e) {
-    state.heartClickCount++;
-
-    const myNick = localStorage.getItem('tetris_nick');
-    if (myNick === 'Hans' && state.curLang === 'ko' && state.heartClickCount % 10 === 0) {
-        openAdminModal();
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top;
-    
-    for(let i=0; i<3; i++) {
-        setTimeout(() => {
-            const heart = document.createElement('div');
-            heart.innerText = '❤️';
-            heart.className = 'floating-heart';
-            heart.style.left = (x + (Math.random() * 40 - 20)) + 'px';
-            heart.style.top = y + 'px';
-            document.body.appendChild(heart);
-            setTimeout(() => heart.remove(), 1500);
-        }, i * 100);
-    }
-
-    const count = await incrementHeartCount();
-    createFlyingCount(x, y, count);
-}
-
-async function openAdminModal() {
-    const overlay = document.getElementById('admin-msg-overlay');
-    overlay.classList.remove('hidden');
-    
-    document.querySelectorAll('.admin-tab')[0].click();
-
-    const countEl = document.getElementById('admin-total-hearts');
-    const msgListDiv = document.getElementById('admin-msg-list');
-    
-    countEl.innerText = "💖 받은 하트: 불러오는 중...";
-    msgListDiv.innerHTML = '<div style="padding:20px; text-align:center;">로딩중...</div>';
-
-    const totalHearts = await getHeartCount();
-    countEl.innerText = `💖 받은 하트 총 개수: ${totalHearts.toLocaleString()}개`;
-
-    const msgs = await getHeartMessages();
-    renderAdminMessages(msgs);
-
-    const statsEl = document.getElementById('admin-game-stats');
-    const logListDiv = document.getElementById('admin-log-list');
-    
-    statsEl.innerText = "📊 통계 로딩중...";
-    logListDiv.innerHTML = '<div style="padding:20px; text-align:center;">로딩중...</div>';
-
-    const stats = await getGameStats();
-    statsEl.innerHTML = `오늘 게임 유저: <span style="color:#fff">${stats.todayUsers}명</span> <span style="color:#666">|</span> 누적 유저: <span style="color:#fff">${stats.totalUsers}명</span>`;
-
-    const logs = await getRecentGameLogs();
-    renderAdminLogs(logs);
-}
-
-function closeAdminModal() {
-    document.getElementById('admin-msg-overlay').classList.add('hidden');
-}
-
-function renderAdminMessages(msgs) {
-    const listDiv = document.getElementById('admin-msg-list');
-    if (msgs.length === 0) {
-        listDiv.innerHTML = '<div style="padding:20px; text-align:center;">메시지가 없습니다.</div>';
-        return;
-    }
-
-    let html = '';
-    msgs.forEach(m => {
-        html += `
-            <div class="msg-row">
-                <div class="msg-info">
-                    <span style="color:#0DFF72">${m.hartnickname}</span>
-                    <span style="color:#666; margin: 0 5px;">|</span>
-                    <span style="font-size:0.8rem">${m.dateStr}</span>
-                </div>
-                <div class="msg-body">${m.hartcomment}</div>
-            </div>
-        `;
-    });
-    listDiv.innerHTML = html;
-}
-
-function renderAdminLogs(logs) {
-    const listDiv = document.getElementById('admin-log-list');
-    if (logs.length === 0) {
-        listDiv.innerHTML = '<div style="padding:20px; text-align:center; line-height:1.5;">최근 게임 기록이 없습니다.<br><span style="font-size:0.9rem; color:#888;">(업데이트 이후 게임을 진행해야 표시됩니다)</span></div>';
-        return;
-    }
-
-    let html = '';
-    logs.forEach(l => {
-        html += `
-            <div class="msg-row" style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <span style="color:#FFD700; font-weight:bold; font-size:1.1rem;">${l.nickname}</span>
-                    <br>
-                    <span style="font-size:0.8rem; color:#aaa;">${l.time}</span>
-                </div>
-                <div style="text-align:right; font-size:0.9rem; color:#ccc;">
-                    <span style="color:#fff">Total: ${l.total}</span> <br>
-                    <span style="color:#0DFF72">W:${l.win}</span> / <span style="color:#FF0D72">L:${l.lose}</span>
-                </div>
-            </div>
-        `;
-    });
-    listDiv.innerHTML = html;
-}
-
-function createFlyingCount(x, y, count) {
-    const el = document.createElement('div');
-    el.className = 'flying-count';
-    el.innerText = `+${count.toLocaleString()}`; 
-    el.style.left = x + 'px';
-    el.style.top = (y - 30) + 'px'; 
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2000);
-}
-
-function handleHeartTextClick(textEl, inputEl) {
-    inputEl.value = ""; 
-    textEl.classList.add('hidden');
-    inputEl.classList.remove('hidden');
-    inputEl.focus();
-}
-
-async function handleHeartInputKey(e, textEl, inputEl) {
-    processHeartInput(textEl, inputEl);
-}
-
-function updateSpeakerIcon(isMuted) {
-    const wave = document.getElementById('spk-wave');
-    const cross = document.getElementById('spk-cross');
-    if (isMuted) {
-        wave.classList.add('hidden');
-        cross.classList.remove('hidden');
-    } else {
-        wave.classList.remove('hidden');
-        cross.classList.add('hidden');
+    if(state.run && state.opponent.bot && !state.isAutoMode) {
+        state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot);
     }
 }
 
@@ -341,13 +169,11 @@ function handleGlobalKey(e) {
 
 function handleGlobalClick(e) {
     initAudio(); 
-    
     const langMenu = document.getElementById('lang-menu');
     if (langMenu.classList.contains('show') && !e.target.closest('#lang-ctrl')) {
         langMenu.classList.remove('show');
         return; 
     }
-    
     if(!document.getElementById('ranking-overlay').classList.contains('hidden')) return;
     if(!document.getElementById('admin-msg-overlay').classList.contains('hidden')) return;
 
@@ -394,120 +220,8 @@ function togglePause() {
     }
 }
 
-function detectAndSetLang() {
-    const browserLang = navigator.language || navigator.userLanguage; 
-    if(browserLang.includes('ko')) setLang('ko');
-    else if(browserLang.includes('ja')) setLang('ja');
-    else setLang('en');
-}
-function setLang(lang) {
-    state.curLang = lang;
-    const S = STRINGS[lang];
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if(S[key]) el.innerText = S[key];
-    });
-    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
-        const key = el.getAttribute('data-i18n-ph');
-        if(S[key]) el.placeholder = S[key];
-    });
-    
-    document.querySelectorAll('.heart-text').forEach(el => {
-        el.innerText = S.heartMsg;
-    });
-
-    document.body.className = '';
-    if(lang === 'ko') document.body.classList.add('font-ko');
-    else if(lang === 'ja') document.body.classList.add('font-ja');
-    else document.body.classList.add('font-en');
-    updateCreditsUI(lang);
-    
-    const nickIn = document.getElementById('nick-in');
-    if(!nickIn.value) {
-        document.getElementById('my-nick-side').innerText = S.me;
-        document.getElementById('game-my-label').innerText = S.me;
-    }
-    
-    const titleEl = document.getElementById('game-title');
-    if (state.isAutoMode) {
-        titleEl.innerText = S.autoModeTitle;
-    } else if (!state.isPaused) {
-        titleEl.innerText = S.title;
-    }
-
-    document.querySelectorAll('.lang-opt').forEach(btn => btn.classList.remove('active'));
-    const idx = lang === 'ko' ? 0 : lang === 'ja' ? 1 : 2;
-    document.querySelectorAll('.lang-opt')[idx].classList.add('active');
-    document.getElementById('lang-menu').classList.remove('show');
-}
-
-function updateCreditsUI(lang) {
-    const C = STRINGS[lang].credits;
-    const dateStr = new Date().toLocaleDateString(lang === 'ko' ? 'ko-KR' : lang === 'ja' ? 'ja-JP' : 'en-US');
-    const html = `${C.pdLabel} <span>${C.pdName}</span><br>${C.devLabel} <span>${C.devName}</span><br>${C.timeLabel} <span>${C.timeVal}</span> (${dateStr})`;
-    document.getElementById('credits-area').innerHTML = html;
-}
-function toggleLangMenu() { document.getElementById('lang-menu').classList.toggle('show'); }
-
-function handleFile(e) {
-    if (e.target.files[0]) {
-        const r = new FileReader();
-        r.onload = ev => {
-            const img = new Image();
-            img.onload = () => {
-                const c = document.createElement('canvas');
-                c.width = 100; c.height = 100;
-                c.getContext('2d').drawImage(img, 0, 0, 100, 100);
-                const data = c.toDataURL('image/jpeg', 0.8);
-                document.getElementById('preview-img').src = data;
-                document.getElementById('my-img').src = data;
-                localStorage.setItem('tetris_img', data);
-            };
-            img.src = ev.target.result;
-        };
-        r.readAsDataURL(e.target.files[0]);
-    }
-}
-
-function loadProfile() {
-    const savedImg = localStorage.getItem('tetris_img') || DEFAULT_SVG;
-    document.getElementById('preview-img').src = savedImg;
-    document.getElementById('my-img').src = savedImg;
-    const savedNick = localStorage.getItem('tetris_nick');
-    if(savedNick) document.getElementById('nick-in').value = savedNick;
-    const rec = JSON.parse(localStorage.getItem('tetris_record') || '{"win":0,"lose":0}');
-    state.record = rec;
-    const total = rec.win + rec.lose;
-    const ratio = total > 0 ? rec.win / total : 0;
-    if(ratio >= 0.7) setDifficulty('hard');
-    else if(ratio < 0.3) setDifficulty('normal');
-    updateRecordUI();
-}
-function saveNick() {
-    const nick = document.getElementById('nick-in').value;
-    if(nick) localStorage.setItem('tetris_nick', nick);
-    const displayNick = nick || STRINGS[state.curLang].me;
-    document.getElementById('my-nick-side').innerText = displayNick;
-    document.getElementById('game-my-label').innerText = displayNick;
-    document.getElementById('my-img').src = document.getElementById('preview-img').src;
-}
-function updateRecordUI() {
-    document.getElementById('rec-win').innerText = state.record.win;
-    document.getElementById('rec-lose').innerText = state.record.lose;
-}
-function setDifficulty(lvl) {
-    state.difficulty = lvl;
-    document.querySelectorAll('.btn-diff').forEach(b => b.classList.remove('active'));
-    const targetBtn = document.getElementById(`btn-${lvl}`);
-    if(targetBtn) targetBtn.classList.add('active');
-    
-    if(state.run && state.opponent.bot && !state.isAutoMode) {
-        state.opponent.bot = new Bot(state.difficulty, receiveAtkFromBot);
-    }
-}
-
 function startCountdown() {
-    initAudio(); stopBGM(); saveNick();
+    initAudio(); stopBGM(); UI.saveNick();
     if (state.animationId) cancelAnimationFrame(state.animationId);
     state.isAutoMode = false;
     document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
@@ -568,7 +282,7 @@ function startGame() {
     state.bag = []; state.next = null;
     
     initNextBlock(); resetPiece(); 
-    updateUI();
+    UI.updateStatsUI();
     document.getElementById('quit-btn').classList.remove('hidden');
     playSFX('start'); 
     
@@ -591,12 +305,12 @@ function startAutoMode() {
     
     state.autoBotLeft = new Bot('superHard', (lines) => {
         if(state.opponent.bot) state.opponent.bot.receiveAtk(lines);
-        animateAttack('player', lines, null);
+        UI.animateAttack('player', lines, null);
     });
     
     state.opponent.bot = new Bot('superHard', (lines) => {
         if(state.autoBotLeft) state.autoBotLeft.receiveAtk(lines);
-        animateAttack('opponent', lines, null);
+        UI.animateAttack('opponent', lines, null);
     });
 
     document.getElementById('timer').innerText = "AUTO";
@@ -658,58 +372,6 @@ function resetAutoMode() {
     startAutoMode();
 }
 
-function animateAttack(sender, lines, score, callback) {
-    const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
-    const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
-    const srcEl = document.getElementById(srcId);
-    const tgtEl = document.getElementById(tgtId);
-    if(!srcEl || !tgtEl) { if(callback) callback(); return; }
-    
-    const srcRect = srcEl.getBoundingClientRect();
-    const tgtRect = tgtEl.getBoundingClientRect();
-    
-    if (!state.isAutoMode) playSFX('swoosh');
-    
-    const div = document.createElement('div');
-    div.className = 'attack-projectile'; 
-    
-    const oneBlockHeight = srcRect.height / ROWS;
-    const h = lines * oneBlockHeight;
-    
-    div.style.width = srcRect.width + 'px';
-    div.style.height = h + 'px';
-    div.style.left = srcRect.left + 'px';
-    div.style.top = (srcRect.bottom - h) + 'px'; 
-    
-    if (score > 0) {
-        const span = document.createElement('span');
-        span.className = 'score-in-block';
-        span.innerText = `+${score}`;
-        div.appendChild(span);
-    }
-
-    document.body.appendChild(div);
-    
-    const anim = div.animate([
-        { left: srcRect.left + 'px', top: (srcRect.bottom - h) + 'px', opacity: 0.8, transform: 'scale(0.9)' },
-        { left: tgtRect.left + 'px', top: (tgtRect.bottom - h) + 'px', opacity: 1, transform: 'scale(1)' }
-    ], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
-    
-    anim.onfinish = () => {
-        if (score > 0) {
-            const balloon = document.createElement('div');
-            balloon.className = 'score-balloon';
-            balloon.innerText = `+${score}`;
-            balloon.style.left = (tgtRect.left + tgtRect.width / 2 - 20) + 'px';
-            balloon.style.top = (tgtRect.bottom - 50) + 'px';
-            document.body.appendChild(balloon);
-            setTimeout(() => balloon.remove(), 1500);
-        }
-        div.remove(); 
-        if(callback) callback(); 
-    };
-}
-
 function getPieceFromBag() {
     if (state.bag.length === 0) state.bag = 'ILJOTSZ'.split('').sort(() => Math.random() - 0.5);
     return createPiece(state.bag.pop());
@@ -769,9 +431,9 @@ function checkLines() {
         state.player.score += scoreAdd; 
         state.stats.atk += lines;
         
-        playSFX('clear'); updateUI();
+        playSFX('clear'); UI.updateStatsUI();
         if(state.opponent.isAI && state.opponent.bot) {
-            animateAttack('player', lines, scoreAdd, () => {
+            UI.animateAttack('player', lines, scoreAdd, () => {
                 state.opponent.bot.receiveAtk(lines);
             });
         }
@@ -779,8 +441,8 @@ function checkLines() {
 }
 
 function receiveAtkFromBot(lines) {
-    animateAttack('opponent', lines, 0, () => {
-        state.stats.rec += lines; updateUI();
+    UI.animateAttack('opponent', lines, 0, () => {
+        state.stats.rec += lines; UI.updateStatsUI();
         for(let i=0; i<lines; i++) { state.grid.shift(); state.grid.push(genGarbage()); }
         playSFX('attack'); draw();
     });
@@ -832,11 +494,7 @@ function drawNext() {
         state.next.forEach((r,y)=>r.forEach((v,x)=>{ if(v) drawBlock(ctxNext, x*bs+offX, y*bs+offY, bs, v); }));
     }
 }
-function updateUI() {
-    document.getElementById('s-my-score').innerText = state.player.score;
-    document.getElementById('s-atk').innerText = state.stats.atk;
-    document.getElementById('s-rec').innerText = state.stats.rec;
-}
+
 function quitGame() { 
     if(!state.run) return; 
     stopBGM(); 
@@ -884,7 +542,7 @@ async function endGame(res) {
     }
     
     localStorage.setItem('tetris_record', JSON.stringify(state.record));
-    updateRecordUI();
+    UI.updateRecordUI();
 }
 
 function restart() {
@@ -911,125 +569,4 @@ function getCountryCode(lang) {
 function closeResultAndStartAuto() {
     document.getElementById('result-area').style.display = 'none';
     startAutoMode();
-}
-
-async function handleSaveRank() {
-    const btn = document.getElementById('save-rank-btn');
-    btn.disabled = true;
-    btn.innerText = "Processing...";
-
-    const comment = document.getElementById('comment-in').value;
-    const nick = localStorage.getItem('tetris_nick') || "Unknown";
-    
-    const data = {
-        ailevel: getAiLevelNum(state.difficulty),
-        score: state.player.score,
-        country: getCountryCode(state.curLang),
-        nickname: nick,
-        comment: comment,
-        wincount: state.currentSessionStats.win,
-        losecount: state.currentSessionStats.lose
-    };
-
-    try {
-        const success = await saveRankData(data);
-        if(success) {
-            showToast(STRINGS[state.curLang].toastSaved);
-            document.getElementById('rank-save-area').classList.add('hidden');
-        } else {
-            throw new Error("Save returned false");
-        }
-    } catch (e) {
-        console.error(e);
-        alert("Error saving rank.");
-        btn.disabled = false;
-        btn.innerText = STRINGS[state.curLang].saveRankBtn;
-    }
-}
-
-function openRankingModal() {
-    if (state.run && !state.isPaused) {
-        state.wasPausedByRank = true;
-        togglePause();
-    } else {
-        state.wasPausedByRank = false;
-    }
-
-    const overlay = document.getElementById('ranking-overlay');
-    overlay.classList.remove('hidden');
-
-    const currentDiffNum = getAiLevelNum(state.difficulty);
-    document.querySelectorAll('.rank-tab').forEach(t => {
-        t.classList.remove('active');
-        if(Number(t.dataset.lvl) === currentDiffNum) t.classList.add('active');
-    });
-
-    loadRankingData(currentDiffNum);
-}
-
-function closeRankingModal() {
-    document.getElementById('ranking-overlay').classList.add('hidden');
-    if (state.run && state.isPaused && state.wasPausedByRank) {
-        togglePause();
-    }
-}
-
-async function loadRankingData(levelNum) {
-    const listDiv = document.getElementById('ranking-list');
-    listDiv.innerHTML = '<div style="padding:20px;">Loading...</div>';
-
-    const ranks = await getRankingsByLevel(Number(levelNum));
-    
-    let html = '';
-    
-    if (ranks.length === 0) {
-        html = '<div style="padding:20px;">No Data</div>';
-    } else {
-        ranks.forEach((r, idx) => {
-            const flagUrl = `https://flagcdn.com/24x18/${r.country.toLowerCase()}.png`;
-            const w = r.wincount || 0;
-            const l = r.losecount || 0;
-            html += `
-                <div class="ranking-row">
-                    <div class="rank-idx">${idx + 1}</div>
-                    <div class="rank-nick">${r.nickname}</div>
-                    <div class="rank-country">
-                        <img src="${flagUrl}" alt="${r.country}" title="${r.country}">
-                    </div>
-                    <div class="rank-score">${r.ailevelscore.toLocaleString()}</div>
-                    <div class="rank-win">${w}</div>
-                    <div class="rank-lose">${l}</div>
-                    <div class="rank-cmt">${r.usercomment}</div>
-                </div>
-            `;
-        });
-    }
-
-    // [수정] 내 닉네임이 리스트에 있으면 축하 메시지, 없으면 도전 메시지
-    const myNick = localStorage.getItem('tetris_nick') || "";
-    let myRankIdx = -1;
-    if(myNick && ranks.length > 0) {
-        myRankIdx = ranks.findIndex(r => r.nickname === myNick);
-    }
-
-    if (myRankIdx !== -1) {
-        // 랭커에 있다면: 축하 메시지 (순위 포함)
-        const msg = STRINGS[state.curLang].rankedMsg.replace('{0}', myRankIdx + 1);
-        html += `<div class="rank-challenge" style="border-color:#0DFF72; color:#0DFF72;">${msg}</div>`;
-    } else {
-        // 랭커에 없다면: 도전 메시지 (무조건 표시)
-        html += `<div class="rank-challenge">${STRINGS[state.curLang].challengeMsg}</div>`;
-    }
-
-    listDiv.innerHTML = html;
-}
-
-function showToast(msg) {
-    const el = document.getElementById('toast-msg');
-    el.innerText = msg;
-    el.classList.remove('hidden');
-    el.style.animation = 'none';
-    el.offsetHeight; 
-    el.style.animation = 'fade-in-out 3s forwards';
-    setTimeout(() => { el.classList.add('hidden'); }, 3000);
 }

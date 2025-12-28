@@ -14,5 +14,7 @@ export const state = {
     currentBGM: 'classicA', curLang: 'en',
     wasPausedByRank: false,
     heartClickCount: 0,
-    currentSessionStats: { win: 0, lose: 0 }
+    currentSessionStats: { win: 0, lose: 0 },
+    // [추가] 모바일 화면 인덱스 (0:Info, 1:Me, 2:Bot, 3:BotInfo)
+    mobileView: 1 
 };

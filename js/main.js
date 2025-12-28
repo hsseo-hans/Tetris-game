@@ -14,12 +14,10 @@ const ctxOpp = canvasOpp.getContext('2d');
 const canvasNext = document.getElementById('next-canvas');
 const ctxNext = canvasNext.getContext('2d');
 
-// 터치 동작 감지를 위한 변수들
+// 터치 변수
 let touchStartX = 0;
 let touchStartY = 0;
-let lastTapTime = 0;
-let lastTapZone = null;
-let tapTimeout = null;
+let touchFingerCount = 0;
 
 window.onload = () => {
     UI.detectAndSetLang();
@@ -28,7 +26,7 @@ window.onload = () => {
     document.addEventListener('click', handleGlobalClick);
     document.addEventListener('keydown', handleGlobalKey);
     
-    // 모바일 터치 이벤트 리스너 (시작과 끝을 모두 감지)
+    // 터치 이벤트
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
@@ -160,99 +158,105 @@ function setDifficulty(lvl) {
     }
 }
 
-// [추가] 터치 시작 핸들러
+// --- 터치 핸들러 ---
 function handleTouchStart(e) {
     if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
         return;
     }
     
-    // 게임 중일 때만 기본 동작(스크롤 등) 방지 및 좌표 기록
+    // 2손가락 이상은 화면 전환용
+    touchFingerCount = e.touches.length;
+    if (touchFingerCount >= 2) {
+        touchStartX = e.touches[0].clientX;
+        return;
+    }
+
+    // 1손가락: 게임 컨트롤 (게임 실행중일때만)
     if (state.run && !state.isPaused && !state.isAutoMode) {
-        // e.preventDefault(); // 일부 브라우저에서 탭 지연 방지
-        touchStartX = e.changedTouches[0].clientX;
-        touchStartY = e.changedTouches[0].clientY;
+        // [중요] 내 화면(View 1)에서만 컨트롤 허용
+        if (state.mobileView === 1) {
+            // e.preventDefault(); // 스크롤 방지
+            touchStartX = e.changedTouches[0].clientX;
+            touchStartY = e.changedTouches[0].clientY;
+        }
     }
 }
 
-// [추가] 터치 종료 핸들러 (제스처 및 탭 로직)
 function handleTouchEnd(e) {
     if (e.target.closest('button, input, select, label, .overlay:not(.hidden) .card, #ranking-overlay .rank-card')) {
         return;
     }
 
-    if (!state.run || state.isPaused || state.isAutoMode) return;
-
-    e.preventDefault(); // 게임 동작 외 브라우저 기능 방지
-
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    
-    const diffX = touchEndX - touchStartX;
-    const diffY = touchEndY - touchStartY;
-    
-    // 화면 4분할 영역 판별 (Start 좌표 기준)
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const isTop = touchStartY < height / 2;
-    const isLeft = touchStartX < width / 2;
-    
-    // 현재 터치 영역 코드 (TL, TR, BL, BR)
-    let zone = isTop ? (isLeft ? 'TL' : 'TR') : (isLeft ? 'BL' : 'BR');
-
-    // 1. 스와이프 감지 (거리가 30px 이상이고 수평 움직임이 더 클 때)
-    if (Math.abs(diffX) > 30 && Math.abs(diffX) > Math.abs(diffY)) {
-        // 하단 영역에서만 방향키 동작
-        if (!isTop) {
-            if (diffX < 0 && zone === 'BL') { 
-                // 6. 하단좌측 영역에서 왼쪽 스와이프 -> 왼쪽 이동
-                playerMove(-1);
-            } else if (diffX > 0) {
-                // 7. 오른쪽 스와이프 -> 오른쪽 이동 (하단 전체 허용)
-                playerMove(1);
+    // 화면 전환 (2손가락 이상)
+    if (touchFingerCount >= 2) {
+        const touchEndX = e.changedTouches[0].clientX;
+        const diffX = touchEndX - touchStartX;
+        
+        if (Math.abs(diffX) > 50) { // 스와이프 감지
+            if (diffX < 0) { // 오른쪽으로 이동 (View Index 증가)
+                state.mobileView = Math.min(state.mobileView + 1, 3);
+            } else { // 왼쪽으로 이동 (View Index 감소)
+                state.mobileView = Math.max(state.mobileView - 1, 0);
+            }
+            UI.updateMobileView();
+            
+            // 내 화면을 벗어나면 일시정지, 돌아오면 재개
+            if (state.run && !state.isAutoMode) {
+                if (state.mobileView !== 1 && !state.isPaused) {
+                    togglePause(); // 일시정지
+                } else if (state.mobileView === 1 && state.isPaused) {
+                    togglePause(); // 재개
+                }
             }
         }
-        return; // 스와이프 처리 후 종료 (탭 처리 안함)
-    }
-
-    // 2. 탭(Tap) 감지 로직
-    const currentTime = new Date().getTime();
-    const tapDelay = 250; // 더블 탭 판정 시간 (ms)
-
-    // 5. 상단 영역 터치 -> 일시정지
-    if (zone === 'TL' || zone === 'TR') {
-        togglePause();
+        touchFingerCount = 0;
         return;
     }
 
-    // 하단 영역 더블 탭 / 싱글 탭 구분
-    if (zone === lastTapZone && (currentTime - lastTapTime) < tapDelay) {
-        // --- 더블 탭 발생 ---
-        clearTimeout(tapTimeout); // 대기 중인 싱글 탭 취소
-        lastTapTime = 0; // 초기화
+    // 게임 컨트롤 (1손가락)
+    if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
+        e.preventDefault(); 
 
-        if (zone === 'BL') {
-            // 1. 하단좌측 더블터치 -> 블럭 떨어뜨리기 (하드드롭)
-            playerHardDrop();
-        } else if (zone === 'BR') {
-            // 2. 우측하단 더블터치 -> 블럭 회전
-            playerRotate();
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+        
+        // 영역 판별
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const isTop = touchStartY < height / 2;
+        const isLeft = touchStartX < width / 2;
+        
+        let zone = isTop ? (isLeft ? 'TL' : 'TR') : (isLeft ? 'BL' : 'BR');
+
+        // 상단 터치 -> 일시정지
+        if (zone === 'TL' || zone === 'TR') {
+            togglePause();
+            return;
         }
-    } else {
-        // --- 싱글 탭 (대기) ---
-        lastTapTime = currentTime;
-        lastTapZone = zone;
 
-        // 더블 탭일 수도 있으므로 일정 시간 대기 후 실행
-        tapTimeout = setTimeout(() => {
-            if (zone === 'BL') {
-                // 3. 하단좌측 한번터치 -> 왼쪽 이동
-                playerMove(-1);
-            } else if (zone === 'BR') {
-                // 4. 하단오른쪽 한번터치 -> 오른쪽 이동
-                playerMove(1);
+        // 스와이프 판정 (30px 이상)
+        if (Math.abs(diffX) > 30 || Math.abs(diffY) > 30) {
+            // 수평 스와이프가 더 큰 경우
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                // 좌측: 왼쪽, 우측: 오른쪽 (어디서든)
+                if (diffX < 0 && zone === 'BL') playerMove(-1); // 왼쪽 스와이프 (좌하단)
+                else if (diffX > 0 && zone === 'BR') playerMove(1); // 오른쪽 스와이프 (우하단)
+            } else {
+                // 수직 스와이프
+                if (diffY > 0 && zone === 'BL') { // 아래로 스와이프 (좌하단) -> 하드드롭
+                    playerHardDrop();
+                } else if (diffY < 0 && zone === 'BR') { // 위로 스와이프 (우하단) -> 회전
+                    playerRotate();
+                }
             }
-            lastTapTime = 0; // 타임아웃 후 초기화
-        }, tapDelay);
+        } else {
+            // 탭 (단일 터치)
+            if (zone === 'BL') playerMove(-1); // 좌하단 탭 -> 왼쪽
+            else if (zone === 'BR') playerMove(1); // 우하단 탭 -> 오른쪽
+        }
     }
 }
 
@@ -329,6 +333,7 @@ function startCountdown() {
     if (state.animationId) cancelAnimationFrame(state.animationId);
     state.isAutoMode = false;
     document.getElementById('game-title').innerText = STRINGS[state.curLang].title;
+    document.body.classList.add('game-started'); // 모바일 컨트롤 숨김
 
     const m = Math.floor(state.duration / 60000);
     const s = Math.floor((state.duration % 60000) / 1000);
@@ -341,7 +346,9 @@ function startCountdown() {
     countOverlay.style.display = 'flex';
     
     const msgEl = document.getElementById('count-msg');
-    if(msgEl) msgEl.innerText = (state.difficulty === 'superHard') ? STRINGS[state.curLang].superHardMsg : "";
+    
+    // [수정] 모바일 가이드 표시 (데스크탑에선 CSS로 숨겨짐)
+    msgEl.innerHTML = (state.difficulty === 'superHard' ? STRINGS[state.curLang].superHardMsg : "") + STRINGS[state.curLang].guideHtml;
     
     let count = 3;
     const cntEl = document.getElementById('count-text');
@@ -376,6 +383,10 @@ function startGame() {
     state.run = true; state.isPaused = false;
     state.isAutoMode = false;
     state.autoBotLeft = null;
+    
+    // 모바일 뷰를 '내 게임'으로 강제 전환
+    state.mobileView = 1;
+    UI.updateMobileView();
 
     state.grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
     state.grid[18] = genGarbage(); state.grid[19] = genGarbage();
@@ -609,6 +620,8 @@ async function endGame(res) {
     if(state.animationId) cancelAnimationFrame(state.animationId); 
     state.run = false; stopBGM();
     
+    document.body.classList.remove('game-started'); // 모바일 컨트롤 다시 보이기
+
     const nick = localStorage.getItem('tetris_nick') || "Anonymous";
     const lvlNum = getAiLevelNum(state.difficulty);
     const isWin = (res === "WIN");

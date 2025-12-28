@@ -7,12 +7,14 @@ import {
 } from './firebase.js';
 import { playSFX } from './audio.js';
 
-// --- 언어 및 초기화 관련 ---
+// --- 언어 및 초기화 ---
 export function detectAndSetLang() {
     const browserLang = navigator.language || navigator.userLanguage; 
-    if(browserLang.includes('ko')) setLang('ko');
-    else if(browserLang.includes('ja')) setLang('ja');
-    else setLang('en');
+    let targetLang = 'en';
+    if(browserLang.includes('ko')) targetLang = 'ko';
+    else if(browserLang.includes('ja')) targetLang = 'ja';
+    
+    setLang(targetLang);
 }
 
 export function setLang(lang) {
@@ -26,15 +28,20 @@ export function setLang(lang) {
         const key = el.getAttribute('data-i18n-ph');
         if(S[key]) el.placeholder = S[key];
     });
-    
     document.querySelectorAll('.heart-text').forEach(el => {
         el.innerText = S.heartMsg;
     });
 
     document.body.className = '';
+    if(state.run) document.body.classList.add('game-started');
+    
+    // 모바일 뷰 클래스 초기화
+    updateMobileView();
+
     if(lang === 'ko') document.body.classList.add('font-ko');
     else if(lang === 'ja') document.body.classList.add('font-ja');
     else document.body.classList.add('font-en');
+    
     updateCreditsUI(lang);
     
     const nickIn = document.getElementById('nick-in');
@@ -65,6 +72,25 @@ function updateCreditsUI(lang) {
 
 export function toggleLangMenu() { document.getElementById('lang-menu').classList.toggle('show'); }
 
+// --- 모바일 뷰 관리 ---
+export function updateMobileView() {
+    // 0:Info, 1:Me, 2:Bot, 3:BotInfo
+    document.body.classList.remove('mobile-view-0', 'mobile-view-1', 'mobile-view-2', 'mobile-view-3');
+    document.body.classList.add(`mobile-view-${state.mobileView}`);
+    
+    const titleEl = document.getElementById('game-title');
+    if (state.run) {
+        // 게임 중 다른 뷰로 가면 PAUSED
+        if (state.mobileView !== 1) {
+            titleEl.innerText = "PAUSED";
+        } else if (state.isPaused) {
+            titleEl.innerText = "PAUSED";
+        } else {
+            titleEl.innerText = "Tetris";
+        }
+    }
+}
+
 // --- 프로필 관련 ---
 export function handleFile(e) {
     if (e.target.files[0]) {
@@ -83,6 +109,8 @@ export function handleFile(e) {
             img.src = ev.target.result;
         };
         r.readAsDataURL(e.target.files[0]);
+        // [수정] 모바일에서 재선택 가능하도록 value 초기화
+        e.target.value = '';
     }
 }
 
@@ -97,7 +125,6 @@ export function loadProfile() {
     const total = rec.win + rec.lose;
     const ratio = total > 0 ? rec.win / total : 0;
     
-    // 난이도 자동 설정 (UI 업데이트 포함)
     let diff = 'normal';
     if(ratio >= 0.7) diff = 'hard';
     else if(ratio < 0.3) diff = 'normal';
@@ -222,6 +249,7 @@ export async function loadRankingData(levelNum) {
             const flagUrl = `https://flagcdn.com/24x18/${r.country.toLowerCase()}.png`;
             const w = r.wincount || 0;
             const l = r.losecount || 0;
+            // [수정] 툴팁을 위한 data-full 속성 추가
             html += `
                 <div class="ranking-row">
                     <div class="rank-idx">${idx + 1}</div>
@@ -232,7 +260,7 @@ export async function loadRankingData(levelNum) {
                     <div class="rank-score">${r.ailevelscore.toLocaleString()}</div>
                     <div class="rank-win">${w}</div>
                     <div class="rank-lose">${l}</div>
-                    <div class="rank-cmt">${r.usercomment}</div>
+                    <div class="rank-cmt" data-full="${r.usercomment}">${r.usercomment}</div>
                 </div>
             `;
         });

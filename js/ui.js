@@ -20,20 +20,17 @@ export function detectAndSetLang() {
     window.addEventListener('resize', checkMobileLayout);
 }
 
-// [수정] 화면 분할 로직 (사용자 요청: width * 2 > height)
+// 화면 비율 로직 (세로가 가로의 1.3배보다 크면 무조건 Split View)
 export function checkMobileLayout() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     
-    // 가로의 2배가 세로보다 커야 Combined View (두 화면 표시)
-    // 일반적인 세로 모드 폰(1:2 비율 등)은 1.5배나 2배나 분할 조건에 해당하지만
-    // 2배로 설정하면 가로가 꽤 넓어야만 합쳐지므로 분할 뷰가 더 자주 나옴.
-    if (width * 2 > height) {
-        state.isCombinedView = true;
-        document.body.classList.add('mobile-combined');
-    } else {
+    if (height > width * 1.3) {
         state.isCombinedView = false;
         document.body.classList.remove('mobile-combined');
+    } else {
+        state.isCombinedView = true;
+        document.body.classList.add('mobile-combined');
     }
     updateMobileView();
 }
@@ -97,20 +94,19 @@ export function toggleLangMenu() { document.getElementById('lang-menu').classLis
 export function updateMobileView() {
     document.body.classList.remove('mobile-view-0', 'mobile-view-1', 'mobile-view-2', 'mobile-view-3');
     
-    // Combined(2개 동시)면 최대 인덱스 2, Split(따로)이면 최대 인덱스 3
     const maxView = state.isCombinedView ? 2 : 3;
     if (state.mobileView > maxView) state.mobileView = maxView;
     
     document.body.classList.add(`mobile-view-${state.mobileView}`);
     
+    // [수정] 스와이프해도 일시정지가 아니면 타이틀 유지
     const titleEl = document.getElementById('game-title');
     if (state.run) {
-        if (state.mobileView !== 1) {
-            if(!state.isPaused) titleEl.innerText = "PAUSED";
-        } else if (state.isPaused) {
+        if (state.isPaused) {
             titleEl.innerText = "PAUSED";
         } else {
-            titleEl.innerText = STRINGS[state.curLang].title;
+            // 오토모드면 오토 타이틀, 아니면 기본 타이틀
+            titleEl.innerText = state.isAutoMode ? STRINGS[state.curLang].autoModeTitle : STRINGS[state.curLang].title;
         }
     }
 }
@@ -467,6 +463,7 @@ export function showToast(msg) {
     setTimeout(() => { el.classList.add('hidden'); }, 3000);
 }
 
+// [수정] 애니메이션 로직: 숨겨진 요소(display:none) 처리 강화
 export function animateAttack(sender, lines, score, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
@@ -474,21 +471,51 @@ export function animateAttack(sender, lines, score, callback) {
     const tgtEl = document.getElementById(tgtId);
     if(!srcEl || !tgtEl) { if(callback) callback(); return; }
     
-    const srcRect = srcEl.getBoundingClientRect();
-    const tgtRect = tgtEl.getBoundingClientRect();
+    // 요소가 숨겨져 있으면 rect는 {0,0,0,0}이 나옴.
+    let srcRect = srcEl.getBoundingClientRect();
+    let tgtRect = tgtEl.getBoundingClientRect();
     
+    // 좌표 보정 로직
+    let startX, startY, endX, endY;
+    
+    // 1. 소스 좌표 계산
+    if (srcRect.width === 0) {
+        // 소스가 숨겨져 있음 (화면 분할 상태에서 상대방)
+        // 상대방(AI)이 나에게 보낼 때, AI가 안 보이면 오른쪽 밖에서 날아오는 것으로 간주
+        startX = window.innerWidth; 
+        startY = window.innerHeight / 2; // 대략 중간 높이
+    } else {
+        startX = srcRect.left;
+        startY = srcRect.bottom;
+    }
+
+    // 2. 타겟 좌표 계산
+    if (tgtRect.width === 0) {
+        // 타겟이 숨겨져 있음 (내가 AI에게 보낼 때 AI 화면이 안 보임)
+        // 오른쪽 밖으로 날려보냄
+        endX = window.innerWidth + 50;
+        endY = startY; 
+    } else {
+        endX = tgtRect.left;
+        endY = tgtRect.bottom;
+    }
+
     if (!state.isAutoMode) playSFX('swoosh');
     
     const div = document.createElement('div');
     div.className = 'attack-projectile'; 
     
-    const oneBlockHeight = srcRect.height / ROWS;
+    // 높이 계산 (숨겨져 있으면 대략 600px 기준 비율로)
+    const oneBlockHeight = (srcRect.height > 0) ? srcRect.height / ROWS : 30; 
     const h = lines * oneBlockHeight;
     
-    div.style.width = srcRect.width + 'px';
+    // 보여질 너비 (숨겨져 있으면 300px)
+    const w = (srcRect.width > 0) ? srcRect.width : 300;
+
+    div.style.width = w + 'px';
     div.style.height = h + 'px';
-    div.style.left = srcRect.left + 'px';
-    div.style.top = (srcRect.bottom - h) + 'px'; 
+    div.style.left = startX + 'px';
+    div.style.top = (startY - h) + 'px'; 
     
     if (score > 0) {
         const span = document.createElement('span');
@@ -500,12 +527,12 @@ export function animateAttack(sender, lines, score, callback) {
     document.body.appendChild(div);
     
     const anim = div.animate([
-        { left: srcRect.left + 'px', top: (srcRect.bottom - h) + 'px', opacity: 0.8, transform: 'scale(0.9)' },
-        { left: tgtRect.left + 'px', top: (tgtRect.bottom - h) + 'px', opacity: 1, transform: 'scale(1)' }
+        { left: startX + 'px', top: (startY - h) + 'px', opacity: 0.8, transform: 'scale(0.9)' },
+        { left: endX + 'px', top: (endY - h) + 'px', opacity: 1, transform: 'scale(1)' }
     ], { duration: 600, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' });
     
     anim.onfinish = () => {
-        if (score > 0) {
+        if (score > 0 && tgtRect.width > 0) { // 타겟이 보일 때만 점수 풍선 표시
             const balloon = document.createElement('div');
             balloon.className = 'score-balloon';
             balloon.innerText = `+${score}`;

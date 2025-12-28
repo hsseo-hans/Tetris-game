@@ -18,8 +18,8 @@ const ctxNext = canvasNext.getContext('2d');
 let touchStartX = 0;
 let touchStartY = 0;
 let touchFingerCount = 0;
-let lastTopTapTime = 0;
-let pauseTimeout = null; // [추가] 일시정지 딜레이용 타이머
+// [추가] 더블탭 감지를 위한 타이머 변수
+let topTapTimer = null; 
 
 window.onload = () => {
     UI.detectAndSetLang();
@@ -28,11 +28,9 @@ window.onload = () => {
     document.addEventListener('click', handleGlobalClick);
     document.addEventListener('keydown', handleGlobalKey);
     
-    // 터치 이벤트
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-    // 페이지 가시성 변경 감지
     document.addEventListener("visibilitychange", () => {
         if (document.hidden && state.run && !state.isPaused && !state.isAutoMode) {
             togglePause();
@@ -190,7 +188,7 @@ function handleTouchEnd(e) {
         return;
     }
 
-    // 화면 전환 (2손가락)
+    // 2손가락: 화면 전환
     if (touchFingerCount >= 2) {
         const touchEndX = e.changedTouches[0].clientX;
         const diffX = touchEndX - touchStartX;
@@ -222,25 +220,23 @@ function handleTouchEnd(e) {
     
     // [수정] 상단 영역 (일시정지 vs 전체화면 명확한 구분)
     if (touchEndY < height / 2) {
-        const now = new Date().getTime();
-        
-        // 300ms 안에 다시 탭하면 더블 탭
-        if (now - lastTopTapTime < 300) {
-            // 더블 탭: 대기 중이던 일시정지 취소하고 전체화면 실행
-            clearTimeout(pauseTimeout);
-            UI.toggleFullScreen();
-            lastTopTapTime = 0; // 초기화
+        if (topTapTimer) {
+            // 타이머가 돌고 있다면 -> 이것은 두 번째 탭이다 (더블 탭)
+            clearTimeout(topTapTimer);
+            topTapTimer = null;
+            UI.toggleFullScreen(); // 전체화면
         } else {
-            // 싱글 탭: 300ms 대기 후 일시정지 실행 (더블 탭이 아님을 확인 후 실행)
-            lastTopTapTime = now;
-            pauseTimeout = setTimeout(() => {
-                togglePause();
+            // 타이머가 없다면 -> 이것은 첫 번째 탭이다
+            // 300ms 후에 일시정지를 실행하도록 예약
+            topTapTimer = setTimeout(() => {
+                togglePause(); // 일시정지
+                topTapTimer = null;
             }, 300);
         }
         return;
     }
 
-    // 하단 영역 컨트롤
+    // 하단 영역 (게임 컨트롤)
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         e.preventDefault(); 
 

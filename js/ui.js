@@ -16,25 +16,29 @@ export function detectAndSetLang() {
     
     setLang(targetLang);
     
-    // 초기 레이아웃 체크
     checkMobileLayout();
     window.addEventListener('resize', checkMobileLayout);
 }
 
-// [수정] 화면 비율 로직 개선
+// [수정] 화면 분할 로직 (무조건 분할 강제)
 export function checkMobileLayout() {
     const width = window.innerWidth;
-    const height = window.innerHeight;
     
-    // 로직 변경: 세로(Height)가 가로(Width)의 1.3배보다 크면 무조건 Split View (하나씩 표시)
-    // 즉, 조금이라도 길쭉한 직사각형 폰 화면이면 무조건 분할.
-    // 태블릿이나 가로모드일 때만 Combined View.
-    if (height > width * 1.3) {
+    // 모바일 폰 기준(768px 이하)에서는 계산 없이 무조건 분할(Split View)
+    // 태블릿이나 PC 브라우저 창을 줄였을 때만 비율 계산 적용
+    if (width <= 768) {
         state.isCombinedView = false;
         document.body.classList.remove('mobile-combined');
     } else {
-        state.isCombinedView = true;
-        document.body.classList.add('mobile-combined');
+        const height = window.innerHeight;
+        // 넓은 화면에서만 비율 따짐
+        if (width * 1.5 > height) {
+            state.isCombinedView = true;
+            document.body.classList.add('mobile-combined');
+        } else {
+            state.isCombinedView = false;
+            document.body.classList.remove('mobile-combined');
+        }
     }
     updateMobileView();
 }

@@ -177,30 +177,35 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
     #app-container { gap: 0; margin-top: 0; height: 90vh; width: 100%; align-items: center; justify-content: center; transform-origin: top; }
     .col-side, .col-main { flex: unset; width: 100%; height: 100%; justify-content: flex-start; padding-top: 10px; }
     
-    /* [수정] 모바일 제목 위치 하향 조정 (80px) */
+    /* [수정] 모바일 제목 위치 하향 조정 */
     #game-title { top: 80px; font-size: clamp(2rem, 5vw, 4rem); width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
     
-    /* [수정] 로비 카드 및 타이틀 반응형 */
     .card { width: 90%; max-width: 500px; padding: 20px; }
     .lobby-title { font-size: clamp(3rem, 10vw, 5.5rem); margin-bottom: 20px; }
 
-    /* Split View */
+    /* [수정] Split View 로직 강화 */
+    /* combined 클래스가 없을 때만 숨김 처리 */
+    
+    /* View 0 (Info) */
     body.mobile-view-0:not(.mobile-combined) .col-main { display: none; }
     body.mobile-view-0:not(.mobile-combined) .col-side:last-child { display: none; }
     body.mobile-view-0:not(.mobile-combined) .col-side:first-child { display: flex; opacity: 1; }
 
+    /* View 1 (My Game) */
     body.mobile-view-1:not(.mobile-combined) .col-side { display: none; }
     body.mobile-view-1:not(.mobile-combined) .col-main { display: flex; justify-content: center; }
     body.mobile-view-1:not(.mobile-combined) .game-wrapper:last-child { display: none; } 
     body.mobile-view-1:not(.mobile-combined) .vs-badge { display: none; }
     body.mobile-view-1:not(.mobile-combined) .game-wrapper:first-child { display: flex; opacity: 1; }
 
+    /* View 2 (Bot Game) */
     body.mobile-view-2:not(.mobile-combined) .col-side { display: none; }
     body.mobile-view-2:not(.mobile-combined) .col-main { display: flex; justify-content: center; }
     body.mobile-view-2:not(.mobile-combined) .game-wrapper:first-child { display: none; } 
     body.mobile-view-2:not(.mobile-combined) .vs-badge { display: none; }
     body.mobile-view-2:not(.mobile-combined) .game-wrapper:last-child { display: flex; opacity: 1; }
 
+    /* View 3 (Bot Info) */
     body.mobile-view-3:not(.mobile-combined) .col-main { display: none; }
     body.mobile-view-3:not(.mobile-combined) .col-side:first-child { display: none; }
     body.mobile-view-3:not(.mobile-combined) .col-side:last-child { display: flex; opacity: 1; }

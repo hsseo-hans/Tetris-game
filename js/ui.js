@@ -16,22 +16,25 @@ export function detectAndSetLang() {
     
     setLang(targetLang);
     
+    // 초기 레이아웃 체크
     checkMobileLayout();
     window.addEventListener('resize', checkMobileLayout);
 }
 
-// [수정] 화면 비율에 따른 레이아웃 모드 설정 (1.5배수 적용)
+// [수정] 화면 비율 로직 개선
 export function checkMobileLayout() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     
-    // 가로*1.5가 세로보다 크면 Combined View (두 화면 표시)
-    if (width * 1.5 > height) {
-        state.isCombinedView = true;
-        document.body.classList.add('mobile-combined');
-    } else {
+    // 로직 변경: 세로(Height)가 가로(Width)의 1.3배보다 크면 무조건 Split View (하나씩 표시)
+    // 즉, 조금이라도 길쭉한 직사각형 폰 화면이면 무조건 분할.
+    // 태블릿이나 가로모드일 때만 Combined View.
+    if (height > width * 1.3) {
         state.isCombinedView = false;
         document.body.classList.remove('mobile-combined');
+    } else {
+        state.isCombinedView = true;
+        document.body.classList.add('mobile-combined');
     }
     updateMobileView();
 }
@@ -95,6 +98,7 @@ export function toggleLangMenu() { document.getElementById('lang-menu').classLis
 export function updateMobileView() {
     document.body.classList.remove('mobile-view-0', 'mobile-view-1', 'mobile-view-2', 'mobile-view-3');
     
+    // Combined(2개 동시)면 최대 인덱스 2, Split(따로)이면 최대 인덱스 3
     const maxView = state.isCombinedView ? 2 : 3;
     if (state.mobileView > maxView) state.mobileView = maxView;
     
@@ -394,7 +398,6 @@ function renderAdminLogs(logs) {
     listDiv.innerHTML = html;
 }
 
-// --- 하트 및 기타 ---
 export async function handleHeartIconClick(e) {
     state.heartClickCount++;
     const myNick = localStorage.getItem('tetris_nick');
@@ -465,7 +468,6 @@ export function showToast(msg) {
     setTimeout(() => { el.classList.add('hidden'); }, 3000);
 }
 
-// --- 공격 애니메이션 ---
 export function animateAttack(sender, lines, score, callback) {
     const srcId = sender === 'player' ? 'my-tetris' : 'opp-tetris';
     const tgtId = sender === 'player' ? 'opp-tetris' : 'my-tetris';
@@ -518,7 +520,6 @@ export function animateAttack(sender, lines, score, callback) {
     };
 }
 
-// Helper
 function getAiLevelNum(diffStr) {
     switch(diffStr) {
         case 'easy': return 1;

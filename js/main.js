@@ -32,7 +32,7 @@ window.onload = () => {
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-    // [추가] 페이지 가시성 변경 감지 (모바일 화면 꺼짐, 탭 전환 등)
+    // 페이지 가시성 변경 감지
     document.addEventListener("visibilitychange", () => {
         if (document.hidden && state.run && !state.isPaused && !state.isAutoMode) {
             togglePause();
@@ -220,17 +220,18 @@ function handleTouchEnd(e) {
     const touchEndY = e.changedTouches[0].clientY;
     const height = window.innerHeight;
     
-    // [수정] 상단 영역 (일시정지 vs 전체화면 구분 로직)
+    // [수정] 상단 영역 (일시정지 vs 전체화면 명확한 구분)
     if (touchEndY < height / 2) {
         const now = new Date().getTime();
         
+        // 300ms 안에 다시 탭하면 더블 탭
         if (now - lastTopTapTime < 300) {
-            // 더블 탭 -> 전체화면 (대기 중인 일시정지 취소)
+            // 더블 탭: 대기 중이던 일시정지 취소하고 전체화면 실행
             clearTimeout(pauseTimeout);
             UI.toggleFullScreen();
-            lastTopTapTime = 0;
+            lastTopTapTime = 0; // 초기화
         } else {
-            // 싱글 탭 -> 300ms 대기 후 일시정지 실행
+            // 싱글 탭: 300ms 대기 후 일시정지 실행 (더블 탭이 아님을 확인 후 실행)
             lastTopTapTime = now;
             pauseTimeout = setTimeout(() => {
                 togglePause();
@@ -239,7 +240,7 @@ function handleTouchEnd(e) {
         return;
     }
 
-    // 하단 영역 (게임 컨트롤)
+    // 하단 영역 컨트롤
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         e.preventDefault(); 
 

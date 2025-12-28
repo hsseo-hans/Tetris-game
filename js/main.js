@@ -18,8 +18,6 @@ const ctxNext = canvasNext.getContext('2d');
 let touchStartX = 0;
 let touchStartY = 0;
 let touchFingerCount = 0;
-// [추가] 더블탭 감지를 위한 타이머 변수
-let topTapTimer = null; 
 
 window.onload = () => {
     UI.detectAndSetLang();
@@ -218,25 +216,18 @@ function handleTouchEnd(e) {
     const touchEndY = e.changedTouches[0].clientY;
     const height = window.innerHeight;
     
-    // [수정] 상단 영역 (일시정지 vs 전체화면 명확한 구분)
-    if (touchEndY < height / 2) {
-        if (topTapTimer) {
-            // 타이머가 돌고 있다면 -> 이것은 두 번째 탭이다 (더블 탭)
-            clearTimeout(topTapTimer);
-            topTapTimer = null;
-            UI.toggleFullScreen(); // 전체화면
-        } else {
-            // 타이머가 없다면 -> 이것은 첫 번째 탭이다
-            // 300ms 후에 일시정지를 실행하도록 예약
-            topTapTimer = setTimeout(() => {
-                togglePause(); // 일시정지
-                topTapTimer = null;
-            }, 300);
-        }
+    // [수정] 상단 영역 4분할 로직 적용 (0~25%: Fullscreen, 25~50%: Pause)
+    if (touchEndY < height * 0.25) {
+        // 최상단 25% -> 전체화면 토글
+        UI.toggleFullScreen();
+        return;
+    } else if (touchEndY < height * 0.5) {
+        // 중상단 25% -> 일시정지 토글
+        togglePause();
         return;
     }
 
-    // 하단 영역 (게임 컨트롤)
+    // 하단 영역 (50% ~ 100%) -> 게임 컨트롤
     if (state.run && !state.isPaused && !state.isAutoMode && state.mobileView === 1) {
         e.preventDefault(); 
 

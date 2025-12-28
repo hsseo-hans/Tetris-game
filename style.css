@@ -180,49 +180,48 @@ button:hover { transform: scale(1.02); filter: brightness(1.2); }
     /* [수정] 모바일 제목 위치 하향 조정 */
     #game-title { top: 80px; font-size: clamp(2rem, 5vw, 4rem); width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
     
+    /* [수정] 로비 카드 및 타이틀 반응형 */
     .card { width: 90%; max-width: 500px; padding: 20px; }
     .lobby-title { font-size: clamp(3rem, 10vw, 5.5rem); margin-bottom: 20px; }
 
-    /* [수정] Split View 로직 강화 */
-    /* combined 클래스가 없을 때만 숨김 처리 */
-    
+    /* Split View (View 0~3 명확히 분리) */
     /* View 0 (Info) */
     body.mobile-view-0:not(.mobile-combined) .col-main { display: none; }
-    body.mobile-view-0:not(.mobile-combined) .col-side:last-child { display: none; }
-    body.mobile-view-0:not(.mobile-combined) .col-side:first-child { display: flex; opacity: 1; }
+    body.mobile-view-0:not(.mobile-combined) .col-side#side-right { display: none; }
+    body.mobile-view-0:not(.mobile-combined) .col-side#side-left { display: flex; opacity: 1; align-items: center; justify-content: center; }
 
     /* View 1 (My Game) */
     body.mobile-view-1:not(.mobile-combined) .col-side { display: none; }
-    body.mobile-view-1:not(.mobile-combined) .col-main { display: flex; justify-content: center; }
-    body.mobile-view-1:not(.mobile-combined) .game-wrapper:last-child { display: none; } 
+    body.mobile-view-1:not(.mobile-combined) .col-main { display: flex; justify-content: center; align-items: center; }
+    body.mobile-view-1:not(.mobile-combined) #game-wrap-opp { display: none; } 
     body.mobile-view-1:not(.mobile-combined) .vs-badge { display: none; }
-    body.mobile-view-1:not(.mobile-combined) .game-wrapper:first-child { display: flex; opacity: 1; }
+    body.mobile-view-1:not(.mobile-combined) #game-wrap-me { display: flex; opacity: 1; }
 
     /* View 2 (Bot Game) */
     body.mobile-view-2:not(.mobile-combined) .col-side { display: none; }
-    body.mobile-view-2:not(.mobile-combined) .col-main { display: flex; justify-content: center; }
-    body.mobile-view-2:not(.mobile-combined) .game-wrapper:first-child { display: none; } 
+    body.mobile-view-2:not(.mobile-combined) .col-main { display: flex; justify-content: center; align-items: center; }
+    body.mobile-view-2:not(.mobile-combined) #game-wrap-me { display: none; } 
     body.mobile-view-2:not(.mobile-combined) .vs-badge { display: none; }
-    body.mobile-view-2:not(.mobile-combined) .game-wrapper:last-child { display: flex; opacity: 1; }
+    body.mobile-view-2:not(.mobile-combined) #game-wrap-opp { display: flex; opacity: 1; }
 
     /* View 3 (Bot Info) */
     body.mobile-view-3:not(.mobile-combined) .col-main { display: none; }
-    body.mobile-view-3:not(.mobile-combined) .col-side:first-child { display: none; }
-    body.mobile-view-3:not(.mobile-combined) .col-side:last-child { display: flex; opacity: 1; }
+    body.mobile-view-3:not(.mobile-combined) .col-side#side-left { display: none; }
+    body.mobile-view-3:not(.mobile-combined) .col-side#side-right { display: flex; opacity: 1; align-items: center; justify-content: center; }
 
     /* Combined View */
     body.mobile-combined.mobile-view-0 .col-main { display: none; }
     body.mobile-combined.mobile-view-0 .col-side:last-child { display: none; }
-    body.mobile-combined.mobile-view-0 .col-side:first-child { display: flex; opacity: 1; }
+    body.mobile-combined.mobile-view-0 .col-side:first-child { display: flex; opacity: 1; align-items: center; justify-content: center; }
 
     body.mobile-combined.mobile-view-1 .col-side { display: none; }
-    body.mobile-combined.mobile-view-1 .col-main { display: flex; justify-content: center; gap: 20px; }
+    body.mobile-combined.mobile-view-1 .col-main { display: flex; justify-content: center; gap: 20px; align-items: center; }
     body.mobile-combined.mobile-view-1 .game-wrapper { display: flex !important; transform: scale(0.9); }
     body.mobile-combined.mobile-view-1 .vs-badge { display: block; font-size: 2rem; }
 
     body.mobile-combined.mobile-view-2 .col-main { display: none; }
     body.mobile-combined.mobile-view-2 .col-side:first-child { display: none; }
-    body.mobile-combined.mobile-view-2 .col-side:last-child { display: flex; opacity: 1; }
+    body.mobile-combined.mobile-view-2 .col-side:last-child { display: flex; opacity: 1; align-items: center; justify-content: center; }
 
     canvas.game-canvas { width: 300px; height: 600px; margin-top: auto; margin-bottom: auto; }
     
